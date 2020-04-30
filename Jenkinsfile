@@ -18,7 +18,7 @@ veloxPipeline { p ->
         env.ARTIFACTS_BUILD = "${buildInfo.name}/${buildInfo.number}"
 	}
 
-	env.DOCKER_TAG = "${currentBuild.id}-${env.START_TIME}-${env.GIT_COMMIT}"
+	env.DOCKER_TAG = "latest" //"${currentBuild.id}-${env.START_TIME}-${env.GIT_COMMIT}"
 	env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler:${env.DOCKER_TAG}"
 
     p.common {
@@ -38,12 +38,12 @@ veloxPipeline { p ->
 
         stage('build trawler image') {
 	          sh 'docker build -t $DOCKER_IMAGE . '
-                sshagent(['slnode-ghe-ssh']) {
-                    sh """
-                        git clone git@github.ibm.com:velox/ilmt.git \$BUILD_DIR/../ilmt
-                        \$BUILD_DIR/../ilmt/swidtag.sh "--product-name=api_manager" "--release-name=${releaseName}" "--docker-image=\$DOCKER_IMAGE"
-                        """
-                }
+//                sshagent(['slnode-ghe-ssh']) {
+//                    sh """
+//                        git clone git@github.ibm.com:velox/ilmt.git \$BUILD_DIR/../ilmt
+//                        \$BUILD_DIR/../ilmt/swidtag.sh "--product-name=api_manager" "--release-name=${releaseName}" "--docker-image=\$DOCKER_IMAGE"
+//                        """
+//                }
         }
 
         img = docker.image(env.DOCKER_IMAGE)
