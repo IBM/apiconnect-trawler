@@ -28,26 +28,31 @@ class Trawler(object):
 
     def read_secret(self, key):
         try:
-            value = open("{}/{}".format(self.secrets_path, key, 'r').read())
+            with open("{}/{}".format(self.secrets_path, key, 'r')) as secret:
+                value = secret.read().rstrip()
             return value
         except FileNotFoundError as e:
             logger.exception(e)
             return None
 
-    def __init__(self, config_file='/app/config/config.yaml'):
-        self.logger = logging.getLogger(__name__)
-        self.secrets_path = os.getenv('SECRETS', '/app/secrets')
+    def load_config(self, config_file):
         try:
             with open(config_file, 'r') as config_yaml:
-                config = yaml.safe_load(config_yaml)
+                self.config = yaml.safe_load(config_yaml)
         except FileNotFoundError as e:
             logger.exception(e)
             exit(2)
-        if config['prometheus']['enabled']:
-            port = config['prometheus'].get('port')
+
+    def __init__(self, config_file=None):
+        self.logger = logging.getLogger(__name__)
+        self.secrets_path = os.getenv('SECRETS', '/app/secrets')
+        if config_file:
+            self.load_config(config_file)
+        if self.config['prometheus']['enabled']:
+            port = self.config['prometheus'].get('port')
             logger.info('Starting prometheus http port at {}'.format(port))
-            start_http_server(config['prometheus'].get('port'))
-            self.guage = Gauge('what_stuff', 'The metric')
+            start_http_server(self.config['prometheus'].get('port'))
+        self.guage = Gauge('what_stuff', 'The metric')
 
     def trawl_metrics(self):
         while True:
@@ -65,9 +70,9 @@ class Trawler(object):
 @click.version_option()
 @click.option('-c', '--config', required=False, envvar='CONFIG',
               help="Specifies an alternative config file",
-              default="/app/config/config.yaml",
+              default=None,
               type=click.Path())
-def cli(config='/app/config/config.yaml'):
+def cli(config=None):
     trawler = Trawler(config)
     trawler.trawl_metrics()
 

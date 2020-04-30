@@ -1,0 +1,9 @@
+# Example configuration file
+prometheus:
+  port: 63512 
+  enabled: true
+graphite:
+  server: graphite-server.example.com
+  port: 2003
+  enabled: false
+
