@@ -22,13 +22,13 @@ veloxPipeline { p ->
 	env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler:${env.DOCKER_TAG}"
 
     p.common {
-        //stage('install dependencies') {
-	      //    sh 'pip3 install --user -r requirements.txt'
-        //}
+        stage('install dependencies') {
+	          sh 'pip3 install --user -r requirements.txt'
+        }
 
-        //stage('Test') {
-        //    sh 'echo test'
-        //}
+        stage('Checks') {
+            sh 'pre-commit run --all-files'
+        }
 
         if (env.BRANCH_NAME ==~ /^PR-[0-9]*/) {
             echo "Skipping publish for PR build"
