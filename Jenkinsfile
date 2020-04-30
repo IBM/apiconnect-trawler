@@ -47,10 +47,9 @@ veloxPipeline { p ->
         }
 
         img = docker.image(env.DOCKER_IMAGE)
-            stage('push image') {
-                img.push()
-            }
-
+        stage('push image') {
+            img.push()
         }
+
     }
 }
