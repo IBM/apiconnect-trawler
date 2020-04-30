@@ -23,8 +23,11 @@ veloxPipeline { p ->
 
     p.common {
         stage('install dependencies') {
-	          sh 'pip3 install setuptools'
+	          sh 'pip3 install setuptools pytest>=3.6 pytest-cov pytest-mock'
 	          sh 'pip3 install --user -r requirements.txt'
+        }
+        stage('Run tests') {
+	          sh 'coverage run --source . -m py.test'
         }
 
         stage('SonarQube Code Analysis') {

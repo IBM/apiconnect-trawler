@@ -4,6 +4,7 @@ import os
 import time
 import logging
 import yaml
+import click
 from prometheus_client import start_http_server, Gauge, Summary
 
 
@@ -33,9 +34,8 @@ class Trawler(object):
             logger.exception(e)
             return None
 
-    def __init__(self):
+    def __init__(self, config_file='/app/config/config.yaml'):
         self.logger = logging.getLogger(__name__)
-        config_file = os.getenv('CONFIG', '/app/config/config.yaml')
         self.secrets_path = os.getenv('SECRETS', '/app/secrets')
         try:
             with open(config_file, 'r') as config_yaml:
@@ -61,6 +61,16 @@ class Trawler(object):
         logger.info('Doing stuff')
 
 
-if __name__ == '__main__':
-    trawler = Trawler()
+@click.command()
+@click.version_option()
+@click.option('-c', '--config', required=False, envvar='CONFIG',
+              help="Specifies an alternative config file",
+              default="/app/config/config.yaml",
+              type=click.Path())
+def cli(config='/app/config/config.yaml'):
+    trawler = Trawler(config)
     trawler.trawl_metrics()
+
+
+if __name__ == '__main__':
+    cli()
