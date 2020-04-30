@@ -28,6 +28,7 @@ veloxPipeline { p ->
         }
         stage('Run tests') {
 	          sh 'coverage run --source . -m py.test'
+            sh 'coverage xml'
         }
 
         stage('SonarQube Code Analysis') {
