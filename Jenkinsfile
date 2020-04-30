@@ -37,7 +37,7 @@ veloxPipeline { p ->
         }
 
         stage('build trawler image') {
-	          sh 'docker build -t $(DOCKER_IMAGE) . '
+	          sh 'docker build -t $DOCKER_IMAGE . '
                 sshagent(['slnode-ghe-ssh']) {
                     sh """
                         git clone git@github.ibm.com:velox/ilmt.git \$BUILD_DIR/../ilmt
