@@ -25,9 +25,9 @@ spec:
         configMap:
           name: trawler
           optional: true
-      - name: trawler-secrets
-        secret:
-          secretName: trawler
+#      - name: trawler-secrets
+#        secret:
+#          secretName: trawler
       hostNetwork: true
       imagePullSecrets:
        - name: apiconnect-image-pull-secret
@@ -60,5 +60,5 @@ spec:
         volumeMounts:
         - mountPath: /app/config
           name: trawler-config
-        - mountPath: /app/secrets
-          name: trawler-secrets
+#        - mountPath: /app/secrets
+#          name: trawler-secrets

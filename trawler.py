@@ -26,11 +26,20 @@ class Trawler(object):
       'prometheus': {'enabled': False },
       'graphite':   {'enabled': False }
     }
-    secrets = {}
+    secrets_path = '/app/secrets'
 
+    def read_secret(self, key):
+        try:
+            value = open("{}/{}".format(self.secrets_path, key, 'r').read()
+            return value
+        except FileNotFoundError as e:
+            logger.exception(e)
+            return None
+    
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         config_file = os.getenv('CONFIG', '/app/config/config.yaml')
+        self.secrets_path = os.getenv('SECRETS', '/app/secrets')
         try:
             with open(config_file, 'r') as config_yaml:
                 config = yaml.safe_load(config_yaml)
