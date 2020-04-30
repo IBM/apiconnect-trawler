@@ -1,3 +1,4 @@
 requests
+PyYAML
 graphitesend
 prometheus_client
