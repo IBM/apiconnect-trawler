@@ -23,6 +23,7 @@ veloxPipeline { p ->
 
     p.common {
         stage('install dependencies') {
+	          sh 'pip3 install setuptools'
 	          sh 'pip3 install --user -r requirements.txt'
         }
 
