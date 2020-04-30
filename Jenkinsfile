@@ -27,8 +27,13 @@ veloxPipeline { p ->
 	          sh 'pip3 install --user -r requirements.txt'
         }
 
-        stage('Checks') {
-            sh 'pre-commit run --all-files'
+        stage('SonarQube Code Analysis') {
+            if (env.BRANCH_NAME == "master") {
+                try {
+                    runSonarScanner()
+                } catch (e) {
+                }
+            }
         }
 
         if (env.BRANCH_NAME ==~ /^PR-[0-9]*/) {
