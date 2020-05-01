@@ -30,13 +30,18 @@ class DataPowerNet(object):
             self.password = 'admin'
 
     def fish(self):
+        # Go fishing for datapowers
+        # Load appropriate k8s config
         if self.in_cluster:
             config.load_incluster_config()
         else:
             config.load_kube_config()
+        # Initialise the k8s API
         v1 = client.CoreV1Api()
+        # Retreive pod list for namespace
         ret = v1.list_namespaced_pod(namespace=self.namespace)
         for i in ret.items:
+            # Only look at pods with the restPort is defined
             if 'restPort' in i.metadata.annotations and i.status.pod_ip:
                 datapower = DataPower(
                     ip=i.status.pod_ip,
@@ -53,7 +58,7 @@ class DataPower(object):
     username = None
     password = None
     ip = '127.0.0.1'
-    guages = {}
+    gauges = {}
 
     def __init__(self, ip, port, name, username, password):
         self.ip = ip
@@ -77,23 +82,24 @@ class DataPower(object):
                                verify=False, timeout=1).json()
 
         for l in logging['LogTargetStatus']:
-            target_name = l['LogTarget']['value']
-            if target_name not in self.guages:
-                self.guages[target_name] = {}
-                self.guages[target_name]['processed'] = Gauge(
-                    "{}_{}_processed".format(self.name, target_name).replace('-', '_'),
+            target_name = "{}_{}".format(self.name, l['LogTarget']['value']).replace('-', '_')
+            logger.info("Target name is {}".format(target_name))
+            if target_name not in self.gauges:
+                logger.info("Creating gauges")
+                self.gauges[target_name] = {}
+                self.gauges[target_name]['processed'] = Gauge(
+                    "{}_processed".format(target_name),
                     'Events dropped for logging target')
-                self.guages[target_name]['dropped'] = Gauge(
-                    "{}_{}_dropped".format(self.name, target_name).replace('-', '_'),
+                self.gauges[target_name]['dropped'] = Gauge(
+                    "{}_dropped".format(target_name),
                     'Events dropped for logging target')
-            self.guages[target_name]['processed'].set(l['EventsProcessed'])
-            self.guages[target_name]['dropped'].set(l['EventsDropped'])
-
-            logger.info("{}\t{}\t{}".format(
-                l['LogTarget']['value'],
-                l['EventsProcessed'],
-                l['EventsDropped']
-            ))
+            logger.debug(self.gauges)
+            logger.info("Setting guage {} to {}".format(
+                self.gauges[target_name]['processed']._name, l['EventsProcessed']))
+            self.gauges[target_name]['processed'].set(l['EventsProcessed'])
+            logger.info("Setting guage {} to {}".format(
+                self.gauges[target_name]['processed']._name, l['EventsDropped']))
+            self.gauges[target_name]['dropped'].set(l['EventsDropped'])
 
 
 if __name__ == "__main__":
