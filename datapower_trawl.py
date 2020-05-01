@@ -7,6 +7,8 @@ import urllib3
 urllib3.disable_warnings()
 logger = logging.getLogger(__name__)
 
+# /mgmt/status/apiconnect/TCPSummary
+
 
 class DataPowerNet(object):
     namespace = 'default'
@@ -68,7 +70,8 @@ class DataPower(object):
         self.password = password
         logger.info('DataPower {} initialised at {}:{}'.format(self.name, self.ip, self.port))
         try:
-            self.logging_stats()
+            self.fetch_data('TCPSummary')
+            self.fetch_data('LogTargetStatus')
         except requests.exceptions.ConnectTimeout:
             logger.info(".. timed out (are you outside the cluster)..")
 
@@ -89,7 +92,7 @@ class DataPower(object):
                 self.gauges[target_name] = {}
                 self.gauges[target_name]['processed'] = Gauge(
                     "{}_processed".format(target_name),
-                    'Events dropped for logging target')
+                    'Events processed for logging target')
                 self.gauges[target_name]['dropped'] = Gauge(
                     "{}_dropped".format(target_name),
                     'Events dropped for logging target')
@@ -100,6 +103,43 @@ class DataPower(object):
             logger.info("Setting guage {} to {}".format(
                 self.gauges[target_name]['processed']._name, l['EventsDropped']))
             self.gauges[target_name]['dropped'].set(l['EventsDropped'])
+
+    def set_guage(self, target_name, value):
+        if type(value) is float or type(value) is int:
+            target_name = target_name.replace('-', '_')
+            if target_name not in self.gauges:
+                logger.info("Creating gauges")
+                self.gauges[target_name] = Gauge(
+                    target_name,
+                    target_name, ['pod'])
+            logger.info("Setting guage {} to {}".format(
+                self.gauges[target_name]._name, value))
+            self.gauges[target_name].labels(self.name).set(value)
+
+    def fetch_data(self, provider):
+        logger.info("Processing status provider {}".format(provider))
+        url = "https://{}:{}/mgmt/status/{}/{}".format(
+            self.ip,
+            self.port,
+            self.domain,
+            provider)
+        status = requests.get(url,
+                              auth=(self.username, self.password),
+                              verify=False, timeout=1).json()
+        print(status)
+        data = status.get(provider, {})
+        if type(data) is list:
+            for item in data:
+                name = item[provider.replace('Status', '')]['value']
+                del(item[provider.replace('Status', '')])
+                print(item)
+                for key in item:
+                    self.set_guage("{}_{}_{}".format(provider, name, key), item[key])
+                    logger.info("{}_{}_{}\t{}".format(provider, name, key, item[key]))
+        else:
+            for key in data:
+                self.set_guage("{}_{}".format(provider, key), data[key])
+                logger.info("{}_{}\t{}".format(provider, key, data[key]))
 
 
 if __name__ == "__main__":
