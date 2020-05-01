@@ -70,8 +70,8 @@ class DataPower(object):
         self.password = password
         logger.info('DataPower {} initialised at {}:{}'.format(self.name, self.ip, self.port))
         try:
-            self.fetch_data('TCPSummary')
-            self.fetch_data('LogTargetStatus')
+            self.fetch_data('TCPSummary', 'datapower_tcp')
+            self.fetch_data('LogTargetStatus', 'datapower_logtarget')
         except requests.exceptions.ConnectTimeout:
             logger.info(".. timed out (are you outside the cluster)..")
 
@@ -116,7 +116,7 @@ class DataPower(object):
                 self.gauges[target_name]._name, value))
             self.gauges[target_name].labels(self.name).set(value)
 
-    def fetch_data(self, provider):
+    def fetch_data(self, provider, label):
         logger.info("Processing status provider {}".format(provider))
         url = "https://{}:{}/mgmt/status/{}/{}".format(
             self.ip,
@@ -134,12 +134,12 @@ class DataPower(object):
                 del(item[provider.replace('Status', '')])
                 print(item)
                 for key in item:
-                    self.set_guage("{}_{}_{}".format(provider, name, key), item[key])
-                    logger.info("{}_{}_{}\t{}".format(provider, name, key, item[key]))
+                    self.set_guage("{}_{}_{}".format(label, name, key), item[key])
+                    logger.info("{}_{}_{}\t{}".format(label, name, key, item[key]))
         else:
             for key in data:
-                self.set_guage("{}_{}".format(provider, key), data[key])
-                logger.info("{}_{}\t{}".format(provider, key, data[key]))
+                self.set_guage("{}_{}".format(label, key), data[key])
+                logger.info("{}_{}\t{}".format(label, key, data[key]))
 
 
 if __name__ == "__main__":

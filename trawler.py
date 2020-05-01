@@ -39,6 +39,7 @@ class Trawler(object):
         self.guage = Gauge('what_stuff', 'The metric')
 
     def read_secret(self, key):
+        # Helper function read secrets from mounted k8s secrets
         try:
             with open("{}/{}".format(self.secrets_path, key, 'r')) as secret:
                 value = secret.read().rstrip()
