@@ -1,4 +1,5 @@
 requests
+kubernetes
 click
 PyYAML
 graphitesend

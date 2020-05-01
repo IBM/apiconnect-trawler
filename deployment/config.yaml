@@ -3,7 +3,11 @@ prometheus:
   port: 63512 
   enabled: true
 graphite:
-  server: graphite-host
-  port: 8080
+  server: graphite-v10-dev.internal.apiconnect.cloud.ibm.com
+  port: 2003
   enabled: false
-
+nets:
+  datapower:
+    enabled: true
+    username: admin
+    namespace: apic-gateway

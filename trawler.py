@@ -5,6 +5,7 @@ import time
 import logging
 import yaml
 import click
+from datapower_trawl import DataPowerNet
 from prometheus_client import start_http_server, Gauge, Summary
 
 
@@ -26,6 +27,17 @@ class Trawler(object):
     }
     secrets_path = '/app/secrets'
 
+    def __init__(self, config_file=None):
+        self.logger = logging.getLogger(__name__)
+        self.secrets_path = os.getenv('SECRETS', '/app/secrets')
+        if config_file:
+            self.load_config(config_file)
+        if self.config['prometheus']['enabled']:
+            port = self.config['prometheus'].get('port')
+            logger.info('Starting prometheus http port at {}'.format(port))
+            start_http_server(self.config['prometheus'].get('port'))
+        self.guage = Gauge('what_stuff', 'The metric')
+
     def read_secret(self, key):
         try:
             with open("{}/{}".format(self.secrets_path, key, 'r')) as secret:
@@ -43,17 +55,6 @@ class Trawler(object):
             logger.exception(e)
             exit(2)
 
-    def __init__(self, config_file=None):
-        self.logger = logging.getLogger(__name__)
-        self.secrets_path = os.getenv('SECRETS', '/app/secrets')
-        if config_file:
-            self.load_config(config_file)
-        if self.config['prometheus']['enabled']:
-            port = self.config['prometheus'].get('port')
-            logger.info('Starting prometheus http port at {}'.format(port))
-            start_http_server(self.config['prometheus'].get('port'))
-        self.guage = Gauge('what_stuff', 'The metric')
-
     def trawl_metrics(self):
         while True:
             self.do_stuff()
@@ -61,6 +62,9 @@ class Trawler(object):
 
     @REQUEST_TIME.time()
     def do_stuff(self):
+        if 'datapower' in self.config['nets'] and self.config['nets']['datapower'].get('enabled', True):
+            dp_net = DataPowerNet(self.config['nets']['datapower'], self)
+            dp_net.fish()
         time.sleep(2)
         self.guage.set(time.time())
         logger.info('Doing stuff')

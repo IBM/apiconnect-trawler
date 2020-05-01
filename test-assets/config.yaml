@@ -6,4 +6,8 @@ graphite:
   server: graphite-server.example.com
   port: 2003
   enabled: false
+nets:
+  datapower:
+    enabled: true
+    in_cluster: false
 
