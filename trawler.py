@@ -3,9 +3,10 @@
 import os
 import time
 import logging
+import logging.config
 import yaml
 import click
-from datapower_trawl import DataPowerNet
+from datapower_net import DataPowerNet
 from prometheus_client import start_http_server, Gauge, Summary
 
 
@@ -28,10 +29,12 @@ class Trawler(object):
     secrets_path = '/app/secrets'
 
     def __init__(self, config_file=None):
-        self.logger = logging.getLogger(__name__)
         self.secrets_path = os.getenv('SECRETS', '/app/secrets')
         if config_file:
             self.load_config(config_file)
+        if 'logging' in self.config:
+          logging.config.dictConfig(self.config['logging'])
+        self.logger = logging.getLogger(__name__)
         if self.config['prometheus']['enabled']:
             port = self.config['prometheus'].get('port')
             logger.info('Starting prometheus http port at {}'.format(port))

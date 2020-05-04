@@ -15,7 +15,7 @@ class DataPowerNet(object):
     username = ''
     password = ''
     in_cluster = True
-    items = []
+    items = {}
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -45,13 +45,22 @@ class DataPowerNet(object):
         for i in ret.items:
             # Only look at pods with the restPort is defined
             if 'restPort' in i.metadata.annotations and i.status.pod_ip:
-                datapower = DataPower(
-                    ip=i.status.pod_ip,
-                    port=i.metadata.annotations['restPort'],
-                    name=i.metadata.name,
-                    username=self.username,
-                    password=self.password)
-                self.items.append(datapower)
+                key = "{ip}:{port}".format(ip=i.status.pod_ip, port=i.metadata.annotations['restPort'])
+                if key in self.items:
+                    logger.info("Seen existing DP again - just get metrics")
+                else:
+                    if self.in_cluster:
+                        ip = i.status.pod_ip
+                    else:
+                        ip = '127.0.0.1'
+                    self.items[key] = DataPower(
+                        ip=ip,
+                        port=i.metadata.annotations['restPort'],
+                        name=i.metadata.name,
+                        username=self.username,
+                        password=self.password)
+                self.items[key].gather_metrics()
+                logger.info("DataPowers in list: {}".format(len(self.items)))
 
 
 class DataPower(object):
@@ -59,6 +68,7 @@ class DataPower(object):
     name = "datapower"
     username = None
     password = None
+    statistics_enabled = False
     ip = '127.0.0.1'
     gauges = {}
 
@@ -69,40 +79,41 @@ class DataPower(object):
         self.username = username
         self.password = password
         logger.info('DataPower {} initialised at {}:{}'.format(self.name, self.ip, self.port))
+        self.enable_statistics()
+
+    def enable_statistics(self):
         try:
-            self.fetch_data('TCPSummary', 'datapower_tcp')
-            self.fetch_data('LogTargetStatus', 'datapower_logtarget')
+            # TODO - first check if statistics are already enabled via
+            #  https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics
+
+            logger.info("Attempt to enable statistics")
+            url = "https://{}:{}/mgmt/config/{}/Statistics/default".format(
+                self.ip,
+                self.port,
+                self.domain)
+            state = requests.put(url,
+                                 auth=(self.username, self.password),
+                                 data='{"Statistics":{"LoadInterval":1000,"mAdminState":"enabled","name":"default"}}',
+                                 verify=False,
+                                 timeout=1
+                                 )
+            if state.status_code == 200:
+                self.statistics_enabled = True
+            else:
+                self.statistics_enabled = False
         except requests.exceptions.ConnectTimeout:
             logger.info(".. timed out (are you outside the cluster)..")
 
-    def logging_stats(self):
-        url = "https://{}:{}/mgmt/status/{}/LogTargetStatus".format(
-            self.ip,
-            self.port,
-            self.domain)
-        logging = requests.get(url,
-                               auth=(self.username, self.password),
-                               verify=False, timeout=1).json()
-
-        for l in logging['LogTargetStatus']:
-            target_name = "{}_{}".format(self.name, l['LogTarget']['value']).replace('-', '_')
-            logger.info("Target name is {}".format(target_name))
-            if target_name not in self.gauges:
-                logger.info("Creating gauges")
-                self.gauges[target_name] = {}
-                self.gauges[target_name]['processed'] = Gauge(
-                    "{}_processed".format(target_name),
-                    'Events processed for logging target')
-                self.gauges[target_name]['dropped'] = Gauge(
-                    "{}_dropped".format(target_name),
-                    'Events dropped for logging target')
-            logger.debug(self.gauges)
-            logger.info("Setting guage {} to {}".format(
-                self.gauges[target_name]['processed']._name, l['EventsProcessed']))
-            self.gauges[target_name]['processed'].set(l['EventsProcessed'])
-            logger.info("Setting guage {} to {}".format(
-                self.gauges[target_name]['processed']._name, l['EventsDropped']))
-            self.gauges[target_name]['dropped'].set(l['EventsDropped'])
+    def gather_metrics(self):
+        try:
+            self.fetch_data('TCPSummary', 'datapower_tcp')
+            self.fetch_data('LogTargetStatus', 'datapower_logtarget')
+            self.object_counts()
+            # Needs statistics enabled:
+            if self.statistics_enabled:
+                self.fetch_data('HTTPTransactions2', 'datapower_http')
+        except requests.exceptions.ConnectTimeout:
+            logger.info(".. timed out (are you outside the cluster)..")
 
     def set_guage(self, target_name, value):
         if type(value) is float or type(value) is int:
@@ -126,13 +137,13 @@ class DataPower(object):
         status = requests.get(url,
                               auth=(self.username, self.password),
                               verify=False, timeout=1).json()
-        print(status)
+        logger.debug(status)
         data = status.get(provider, {})
         if type(data) is list:
             for item in data:
                 name = item[provider.replace('Status', '')]['value']
                 del(item[provider.replace('Status', '')])
-                print(item)
+                logger.debug(item)
                 for key in item:
                     self.set_guage("{}_{}_{}".format(label, name, key), item[key])
                     logger.info("{}_{}_{}\t{}".format(label, name, key, item[key]))
@@ -140,6 +151,29 @@ class DataPower(object):
             for key in data:
                 self.set_guage("{}_{}".format(label, key), data[key])
                 logger.info("{}_{}\t{}".format(label, key, data[key]))
+
+# https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
+    def object_counts(self):
+        logger.info("Processing status provider ObjectStatus")
+        url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
+            self.ip,
+            self.port,
+            self.domain)
+        status = requests.get(url,
+                              auth=(self.username, self.password),
+                              verify=False, timeout=1).json()
+        logger.debug(status)
+        data = status.get('ObjectStatus', [])
+        counts = {}
+        for item in data:
+            if item['Class'] in counts:
+                counts[item['Class']] += 1
+            else:
+                counts[item['Class']] = 1
+        for item_class in counts:
+            self.set_guage("datapower_{}_count".format(item_class), counts[item_class])
+
+        logger.info(counts)
 
 
 if __name__ == "__main__":

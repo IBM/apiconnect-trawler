@@ -5,6 +5,18 @@
 
 Trawler for API Connect metrics gathering - owned by Quarks
 
+## Deployment
+
+Trawler is designed to run within the same kubernetes cluster as API Connect, such that it can scrape metrics from the installed components and make them available.
+
+To do this it requires a service account with read access to list pods in the namespaces API Connect components are deployed in.
+
+
+
+
+
+## Development tips
+
 To run locally point the config parameter to a local config file
 
     python3 trawler.py --config local/config.yaml
