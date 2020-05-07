@@ -7,6 +7,7 @@ from kubernetes import client, config
 from click.testing import CliRunner
 
 boaty = trawler.Trawler()
+boaty.secret_path = 'test-assets'
 
 
 def test_check_nosettings():
@@ -22,15 +23,11 @@ def test_check_config_load():
     assert boaty.config['graphite']['enabled'] is False
 
 
-def test_do_stuff(caplog, mocker):
-    mocker.patch('datapower_net.DataPowerNet.fish')
-    mocker.patch('productstats_net.ProductStatsNet.fish')
+def test_trawl(caplog, mocker):
+    boaty.config['nets'] = {}
     mocker.patch('time.sleep', side_effect=KeyboardInterrupt())
-    mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
-    mocker.patch('kubernetes.client.ExtensionsV1beta1Api.list_namespaced_ingress')
     with pytest.raises(KeyboardInterrupt):
+      print(boaty.config)
       boaty.in_cluster = True
       boaty.trawl_metrics()
     assert 'prometheus' in boaty.config

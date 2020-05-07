@@ -4,3 +4,8 @@ click
 PyYAML
 graphitesend
 prometheus_client
+setuptools
+pytest>=3.6
+pytest-cov
+pytest-mock
+requests-mock
