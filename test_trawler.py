@@ -31,6 +31,7 @@ def test_do_stuff(caplog, mocker):
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
     mocker.patch('kubernetes.client.ExtensionsV1beta1Api.list_namespaced_ingress')
     with pytest.raises(KeyboardInterrupt):
+      boaty.in_cluster = True
       boaty.trawl_metrics()
     assert 'prometheus' in boaty.config
     assert 'graphite' in boaty.config
