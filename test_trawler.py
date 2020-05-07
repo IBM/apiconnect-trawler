@@ -58,7 +58,7 @@ def test_product_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
     with requests_mock.mock() as m:
-        m.get(text='{"counts":{"blah":189}}')
+        m.get(url='https://example.com', text='{"counts":{"blah":189}}')
     new_net = productstats_net.ProductStatsNet({}, boaty)
     assert new_net.password == 'not-a-password'
     assert config.load_incluster_config.called
