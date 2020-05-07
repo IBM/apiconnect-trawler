@@ -44,11 +44,13 @@ class ProductStatsNet(object):
 
     def find_hostname(self):
         if self.in_cluster:
+            logger.info("In cluster, so looking for juhu service")
             config.load_incluster_config()
             # Initialise the k8s API
             v1 = client.CoreV1Api()
             # Identify juhu service
             servicelist = v1.list_namespaced_service(namespace=self.namespace)
+            logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
             for service in servicelist.items:
                 if 'juhu' in service.metadata.name:
                     hostname = "{}.{}.svc".format(service.metadata.name, self.namespace)
