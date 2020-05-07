@@ -7,7 +7,8 @@ import logging.config
 import yaml
 import click
 from datapower_net import DataPowerNet
-from prometheus_client import start_http_server, Gauge, Summary
+from productstats_net import ProductStatsNet
+from prometheus_client import start_http_server, Summary
 
 
 logger = logging.getLogger('trawler')
@@ -39,7 +40,6 @@ class Trawler(object):
             port = self.config['prometheus'].get('port')
             logger.info('Starting prometheus http port at {}'.format(port))
             start_http_server(self.config['prometheus'].get('port'))
-        self.guage = Gauge('what_stuff', 'The metric')
 
     def read_secret(self, key):
         # Helper function read secrets from mounted k8s secrets
@@ -60,18 +60,19 @@ class Trawler(object):
             exit(2)
 
     def trawl_metrics(self):
-        while True:
-            self.do_stuff()
-            time.sleep(8)
-
-    @REQUEST_TIME.time()
-    def do_stuff(self):
+        # Initialise
+        logger.info("Laying nets...")
+        nets = []
         if 'datapower' in self.config['nets'] and self.config['nets']['datapower'].get('enabled', True):
-            dp_net = DataPowerNet(self.config['nets']['datapower'], self)
-            dp_net.fish()
-        time.sleep(2)
-        self.guage.set(time.time())
-        logger.info('Doing stuff')
+            nets.append(DataPowerNet(self.config['nets']['datapower'], self))
+        if 'product' in self.config['nets'] and self.config['nets']['product'].get('enabled', True):
+            nets.append(ProductStatsNet(self.config['nets']['product'], self))
+
+        while True:
+            logger.info("Trawling for metrics...")
+            for net in nets:
+                net.fish()
+            time.sleep(8)
 
 
 @click.command()

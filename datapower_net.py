@@ -106,7 +106,7 @@ class DataPower(object):
 
     def gather_metrics(self):
         try:
-            self.fetch_data('TCPSummary', 'datapower_tcp')
+            self.fetch_data('TCPSummary', 'datapower_tcp', '_total')
             self.fetch_data('LogTargetStatus', 'datapower_logtarget')
             self.object_counts()
             # Needs statistics enabled:
@@ -115,7 +115,7 @@ class DataPower(object):
         except requests.exceptions.ConnectTimeout:
             logger.info(".. timed out (are you outside the cluster)..")
 
-    def set_guage(self, target_name, value):
+    def set_gauge(self, target_name, value):
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if target_name not in self.gauges:
@@ -123,11 +123,11 @@ class DataPower(object):
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name, ['pod'])
-            logger.info("Setting guage {} to {}".format(
+            logger.info("Setting gauge {} to {}".format(
                 self.gauges[target_name]._name, value))
             self.gauges[target_name].labels(self.name).set(value)
 
-    def fetch_data(self, provider, label):
+    def fetch_data(self, provider, label, suffix=''):
         logger.info("Processing status provider {}".format(provider))
         url = "https://{}:{}/mgmt/status/{}/{}".format(
             self.ip,
@@ -145,12 +145,10 @@ class DataPower(object):
                 del(item[provider.replace('Status', '')])
                 logger.debug(item)
                 for key in item:
-                    self.set_guage("{}_{}_{}".format(label, name, key), item[key])
-                    logger.info("{}_{}_{}\t{}".format(label, name, key, item[key]))
+                    self.set_gauge("{}_{}_{}{}".format(label, name, key, suffix), item[key])
         else:
             for key in data:
-                self.set_guage("{}_{}".format(label, key), data[key])
-                logger.info("{}_{}\t{}".format(label, key, data[key]))
+                self.set_gauge("{}_{}{}".format(label, key, suffix), data[key])
 
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
     def object_counts(self):
@@ -171,7 +169,7 @@ class DataPower(object):
             else:
                 counts[item['Class']] = 1
         for item_class in counts:
-            self.set_guage("datapower_{}_count".format(item_class), counts[item_class])
+            self.set_gauge("datapower_{}_total".format(item_class), counts[item_class])
 
         logger.info(counts)
 

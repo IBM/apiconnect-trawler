@@ -23,7 +23,7 @@ veloxPipeline { p ->
 
     p.common {
         stage('install dependencies') {
-	          sh 'pip3 install setuptools pytest>=3.6 pytest-cov pytest-mock'
+	          sh 'pip3 install setuptools pytest>=3.6 pytest-cov pytest-mock requests-mock'
 	          sh 'pip3 install --user -r requirements.txt'
         }
         stage('Run tests') {

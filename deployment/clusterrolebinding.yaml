@@ -4,8 +4,7 @@ metadata:
   name: trawler
 subjects:
 - kind: ServiceAccount
-  name: default
-  namespace: default
+  name: trawler
 roleRef:
   kind: ClusterRole
   name: trawler

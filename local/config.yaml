@@ -1,0 +1,43 @@
+# Example configuration file
+prometheus:
+  port: 63512 
+  enabled: true
+graphite:
+  server: graphite-v10-dev.internal.apiconnect.cloud.ibm.com
+  port: 2003
+  enabled: false
+logging:
+  version: 1
+  disable_existing_loggers: False
+  formatters:
+    simple:
+        format: "%(levelname)s: %(asctime)s (%(module)s:%(lineno)d): %(message)s"
+  loggers:
+    kubernetes:
+      level: INFO
+      handlers: [console]
+      propagate: yes
+    requests_oauthlib.oauth2_session:
+      level: INFO
+      handlers: [console]
+      propagate: yes
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: DEBUG
+      formatter: simple
+      stream: ext://sys.stdout
+  root:
+    level: INFO
+    formatter: simple
+    handlers: [console]
+nets:
+  datapower:
+    enabled: false
+    in_cluster: false
+    namespace: apic-gateway
+  product:
+    enabled: true
+    in_cluster: false
+    namespace: apic-management
+    username: rickymoorhouse

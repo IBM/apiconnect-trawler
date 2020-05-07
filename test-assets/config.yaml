@@ -10,4 +10,7 @@ nets:
   datapower:
     enabled: true
     in_cluster: false
+  product:
+    enabled: true
+    in_cluster: false
 
