@@ -53,7 +53,10 @@ class ProductStatsNet(object):
             logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
             for service in servicelist.items:
                 if 'juhu' in service.metadata.name:
-                    hostname = "{}.{}.svc".format(service.metadata.name, self.namespace)
+                    for port_object in service.spec.ports:
+                        if port_object.name == 'https-platform':
+                            port = port_object.port
+                    hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
                     logger.info("Identified service host: {}".format(hostname))
                     return hostname
         else:
