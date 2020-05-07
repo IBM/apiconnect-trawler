@@ -11,3 +11,7 @@ nets:
     enabled: true
     username: admin
     namespace: apic-gateway
+  product:
+    enabled: true
+    username: trawler-monitor
+    namespace: apic-management

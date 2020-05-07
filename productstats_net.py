@@ -31,11 +31,13 @@ class ProductStatsNet(object):
         # Takes in config object and trawler instance it's behind
         # In k8s or outside
         self.in_cluster = config.get('in_cluster', True)
-        # Namespace to find datapower
+        # Namespace to find managemnet pods
         self.namespace = config.get('namespace', 'default')
-        # Datapower username to use for REST calls
+        # Maximum frequency to pull data from APIC
+        self.max_frequency = int(config.get('frequency', 600))
+        # Cloud manager username to use for REST calls
         self.username = config.get('username', 'admin')
-        # Load password from secret `datapower_password`
+        # Load password from secret `cloudmanager_password`
         self.password = trawler.read_secret('cloudmanager_password')
         if self.password is None:
             # Use out of box default password
@@ -75,32 +77,36 @@ class ProductStatsNet(object):
         data_age = int(time.time()) - self.data_time
         logging.info("Data is {} seconds old".format(data_age))
 
-        if self.token and (data_age > self.max_frequency):
-            logging.info("Getting data from API Manager")
-            url = "https://{}/api/cloud/topology".format(self.hostname)
-            response = requests.get(
-                url=url,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer {}".format(self.token),
-                },
-                verify=False
-            )
-            if response.status_code == 200:
-                self.data = response.json()
-                self.data_time = int(time.time())
-                logger.info("Caching data - time = {}".format(self.data_time))
+        if self.token:
+            if (data_age > self.max_frequency):
+                logging.info("Getting data from API Manager")
+                url = "https://{}/api/cloud/topology".format(self.hostname)
+                response = requests.get(
+                    url=url,
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer {}".format(self.token),
+                    },
+                    verify=False
+                )
+                if response.status_code == 200:
+                    self.data = response.json()
+                    self.data_time = int(time.time())
+                    logger.info("Caching data - time = {}".format(self.data_time))
+            else:
+                logging.info("Using cached data")
         else:
-            logging.info("Using cached data")
-        for object_type in self.data['counts']:
-            if object_type not in self.gauges:
-                self.gauges[object_type] = Gauge(
-                    "apiconnect_{}_total".format(object_type),
-                    "Count of {} in this API Connect deployment".format(object_type))
-            logger.info("Setting gauge {} to {}".format(
-                object_type, self.data['counts'][object_type]))
-            self.gauges[object_type].set(self.data['counts'][object_type])
+            logging.warning("No token")
+        if 'counts' in self.data:
+            for object_type in self.data['counts']:
+                if object_type not in self.gauges:
+                    self.gauges[object_type] = Gauge(
+                        "apiconnect_{}_total".format(object_type),
+                        "Count of {} in this API Connect deployment".format(object_type))
+                logger.debug("Setting gauge apiconnect_{}_total to {}".format(
+                    object_type, self.data['counts'][object_type]))
+                self.gauges[object_type].set(self.data['counts'][object_type])
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html

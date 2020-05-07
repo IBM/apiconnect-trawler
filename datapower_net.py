@@ -123,7 +123,7 @@ class DataPower(object):
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name, ['pod'])
-            logger.info("Setting gauge {} to {}".format(
+            logger.debug("Setting gauge {} to {}".format(
                 self.gauges[target_name]._name, value))
             self.gauges[target_name].labels(self.name).set(value)
 
@@ -171,7 +171,7 @@ class DataPower(object):
         for item_class in counts:
             self.set_gauge("datapower_{}_total".format(item_class), counts[item_class])
 
-        logger.info(counts)
+        logger.debug(counts)
 
 
 if __name__ == "__main__":
