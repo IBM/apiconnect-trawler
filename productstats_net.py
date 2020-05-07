@@ -54,7 +54,7 @@ class ProductStatsNet(object):
             for service in servicelist.items:
                 if 'juhu' in service.metadata.name:
                     hostname = "{}.{}.svc".format(service.metadata.name, self.namespace)
-                    logger.info("Identified service host: ".format(hostname))
+                    logger.info("Identified service host: {}".format(hostname))
                     return hostname
         else:
             config.load_kube_config()
