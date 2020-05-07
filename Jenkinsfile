@@ -27,7 +27,7 @@ veloxPipeline { p ->
 	          sh 'pip3 install --user -r requirements.txt'
         }
         stage('Run tests') {
-	          sh 'coverage run --source . -m py.test'
+	          sh 'SECRETS=test-assets coverage run --source . -m py.test'
             sh 'coverage xml'
         }
 
