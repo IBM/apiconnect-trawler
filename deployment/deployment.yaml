@@ -29,8 +29,6 @@ spec:
         secret:
           secretName: trawler
       hostNetwork: true
-      imagePullSecrets:
-       - name: apiconnect-image-pull-secret
       dnsPolicy: ClusterFirstWithHostNet
       hostPID: true
       serviceAccount: trawler
