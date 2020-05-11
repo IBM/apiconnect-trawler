@@ -56,7 +56,7 @@ class ProductStatsNet(object):
             for service in servicelist.items:
                 if 'juhu' in service.metadata.name:
                     for port_object in service.spec.ports:
-                        if port_object.name == 'https-platform':
+                        if port_object.name == 'https-platform' or port_object.name == 'platform-api':
                             port = port_object.port
                     hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
                     logger.info("Identified service host: {}".format(hostname))
