@@ -141,11 +141,15 @@ class DataPower(object):
         data = status.get(provider, {})
         if type(data) is list:
             for item in data:
-                name = item[provider.replace('Status', '')]['value']
-                del(item[provider.replace('Status', '')])
-                logger.debug(item)
-                for key in item:
-                    self.set_gauge("{}_{}_{}{}".format(label, name, key, suffix), item[key])
+                try:
+                    name = item[provider.replace('Status', '')]['value']
+                    del(item[provider.replace('Status', '')])
+                    logger.debug(item)
+                    for key in item:
+                        self.set_gauge("{}_{}_{}{}".format(label, name, key, suffix), item[key])
+                except KeyError:
+                    logger.warning('Failed to parse response for {}'.format(provider))
+                    logger.info(item)
         else:
             for key in data:
                 self.set_gauge("{}_{}{}".format(label, key, suffix), data[key])
