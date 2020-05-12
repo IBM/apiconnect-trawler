@@ -102,7 +102,9 @@ class DataPower(object):
             else:
                 self.statistics_enabled = False
         except requests.exceptions.ConnectTimeout:
-            logger.info(".. timed out (are you outside the cluster)..")
+            logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ReadTimeout:
+            logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
 
     def gather_metrics(self):
         try:
@@ -113,7 +115,9 @@ class DataPower(object):
             if self.statistics_enabled:
                 self.fetch_data('HTTPTransactions2', 'datapower_http')
         except requests.exceptions.ConnectTimeout:
-            logger.info(".. timed out (are you outside the cluster)..")
+            logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ReadTimeout:
+            logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
 
     def set_gauge(self, target_name, value):
         if type(value) is float or type(value) is int:
