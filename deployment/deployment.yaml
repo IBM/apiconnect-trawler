@@ -28,7 +28,7 @@ spec:
       - name: trawler-secrets
         secret:
           secretName: trawler
-      hostNetwork: true
+      hostNetwork: false
       dnsPolicy: ClusterFirstWithHostNet
       hostPID: true
       serviceAccount: trawler

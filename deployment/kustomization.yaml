@@ -4,7 +4,6 @@ configMapGenerator:
 - name: trawler
   files:
   - config.yaml
-  - secret.yaml
 resources:
 - deployment.yaml
 - serviceaccount.yaml
