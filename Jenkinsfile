@@ -6,7 +6,7 @@ veloxPipeline { p ->
 	def rtDocker = Artifactory.docker server: server, credentialsId: 'slnode-artifactory'
 	def buildInfo = Artifactory.newBuildInfo()
 	def releaseName = env.CHANGE_ID ? env.CHANGE_TARGET : env.BRANCH_NAME
-
+  def tag = sh(returnStdout: true, script: "git tag --contains | head -1").trim()
 	def chartArchive
 
 	p.branch(~/master|\d+(\.\d+)+/) {
@@ -17,8 +17,11 @@ veloxPipeline { p ->
         // For easier referencing by other Jenkins builds/jobs
         env.ARTIFACTS_BUILD = "${buildInfo.name}/${buildInfo.number}"
 	}
-
-	env.DOCKER_TAG = "latest" //"${currentBuild.id}-${env.START_TIME}-${env.GIT_COMMIT}"
+  if (tag) {
+  	env.DOCKER_TAG = "${tag}"
+  } else {
+    env.DOCKER_TAG = "latest" 
+  }
 	env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler:${env.DOCKER_TAG}"
 
     p.common {
