@@ -4,6 +4,7 @@ import datapower_net
 import productstats_net
 import requests_mock
 import requests
+from prometheus_client import REGISTRY
 from kubernetes import client, config
 from click.testing import CliRunner
 
@@ -57,7 +58,7 @@ def test_datapower_fishing(mocker):
     assert client.CoreV1Api.list_namespaced_pod.called
 
 
-def test_datapower_instance(mocker):
+def test_datapower_instance(mocker, caplog):
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
         dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
@@ -80,12 +81,13 @@ def test_datapower_instance(mocker):
         "RequestedMemory" : 16}}
         """
         m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=mock_data)
-        mocker.patch('datapower_net.DataPower.set_gauge')
+
         dp.fetch_data('LogTargetStatus', 'test')
-        # "{}_{}{}".format(label, key, suffix), data[key])
-        assert datapower_net.DataPower.set_gauge.called_with('test_EventsProcessed', 210938)
-        assert datapower_net.DataPower.set_gauge.called_with('test_EventsDropped', 0)
-        assert datapower_net.DataPower.set_gauge.called_with('test_EventsPending', 2)
+        assert 'Creating gauges' in caplog.text
+        # Lookup values from prometheus client
+        assert REGISTRY.get_sample_value('test_EventsProcessed', labels={"pod": "myDp"}) == 210938
+        assert REGISTRY.get_sample_value('test_EventsDropped', labels={"pod": "myDp"}) == 0
+        assert REGISTRY.get_sample_value('test_EventsPending', labels={"pod": "myDp"}) == 2
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
