@@ -20,9 +20,9 @@ veloxPipeline { p ->
   if (tag) {
   	env.DOCKER_TAG = "${tag}"
   } else {
-    env.DOCKER_TAG = "latest" 
+    env.DOCKER_TAG = "build${currentBuild.id}" 
   }
-	env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler:${env.DOCKER_TAG}"
+	env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler"
 
     p.common {
         stage('install dependencies') {
@@ -50,7 +50,7 @@ veloxPipeline { p ->
         }
 
         stage('build trawler image') {
-	          sh 'docker build -t $DOCKER_IMAGE . '
+	          sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest. '
 //                sshagent(['slnode-ghe-ssh']) {
 //                    sh """
 //                        git clone git@github.ibm.com:velox/ilmt.git \$BUILD_DIR/../ilmt
