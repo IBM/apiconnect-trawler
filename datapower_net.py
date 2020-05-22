@@ -68,6 +68,7 @@ class DataPower(object):
     name = "datapower"
     username = None
     password = None
+    v5c = False
     statistics_enabled = False
     ip = '127.0.0.1'
     gauges = {}
@@ -78,8 +79,33 @@ class DataPower(object):
         self.name = name
         self.username = username
         self.password = password
-        logger.info('DataPower {} initialised at {}:{}'.format(self.name, self.ip, self.port))
+        self.get_info()
         self.enable_statistics()
+        logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
+
+    def get_info(self):
+        try:
+            logger.info("Check mode")
+            url = "https://{}:{}/mgmt/config/{}/APIConnectGatewayService/default".format(
+                self.ip,
+                self.port,
+                self.domain)
+            state = requests.get(url,
+                                 auth=(self.username, self.password),
+                                 verify=False,
+                                 timeout=1
+                                 )
+            if state.status_code == 200:
+                if state.json()['APIConnectGatewayService'].get('V5CompatibilityMode', 'off') == 'on':
+                    self.v5c = True
+                    logger.info("DataPower has v5c enabled")
+            else:
+                logger.info("Failed to identify mode")
+
+        except requests.exceptions.ConnectTimeout:
+            logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ReadTimeout:
+            logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
 
     def enable_statistics(self):
         try:
@@ -111,6 +137,8 @@ class DataPower(object):
             self.fetch_data('TCPSummary', 'datapower_tcp', '_total')
             self.fetch_data('LogTargetStatus', 'datapower_logtarget')
             self.object_counts()
+            if self.v5c:
+                self.fetch_data('WSMAgentStatus', 'datapower_wsm')
             # Needs statistics enabled:
             if self.statistics_enabled:
                 self.fetch_data('HTTPTransactions2', 'datapower_http')
