@@ -8,6 +8,7 @@ import yaml
 import click
 from datapower_net import DataPowerNet
 from productstats_net import ProductStatsNet
+from analytics_net import AnalyticsNet
 from prometheus_client import start_http_server, Summary
 
 
@@ -67,6 +68,8 @@ class Trawler(object):
             nets.append(DataPowerNet(self.config['nets']['datapower'], self))
         if 'product' in self.config['nets'] and self.config['nets']['product'].get('enabled', True):
             nets.append(ProductStatsNet(self.config['nets']['product'], self))
+        if 'analytics' in self.config['nets'] and self.config['nets']['analytics'].get('enabled', True):
+            nets.append(AnalyticsNet(self.config['nets']['analytics'], self))
 
         while True:
             logger.info("Trawling for metrics...")

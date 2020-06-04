@@ -15,3 +15,6 @@ nets:
     enabled: true
     username: trawler-monitor
     namespace: apic-management
+  analytics:
+    enabled: true
+    namespace: apic-analytics

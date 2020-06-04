@@ -2,6 +2,7 @@ import trawler
 import pytest
 import datapower_net
 import productstats_net
+import analytics_net
 import requests_mock
 import requests
 from prometheus_client import REGISTRY
@@ -61,9 +62,12 @@ def test_datapower_fishing(mocker):
 def test_datapower_instance(mocker, caplog):
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
+        v5c = '{"APIConnectGatewayService":{"V5CompatibilityMode":"on"}}'
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v5c)
         dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
+        assert dp.v5c
         # Mock data
         mock_data = """
 {
@@ -81,6 +85,7 @@ def test_datapower_instance(mocker, caplog):
         "RequestedMemory" : 16}}
         """
         m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=mock_data)
+        m.put('/mgmt/config/apiconnect/Statistics/default', text='')
 
         dp.fetch_data('LogTargetStatus', 'test')
         assert 'Creating gauges' in caplog.text
@@ -91,19 +96,31 @@ def test_datapower_instance(mocker, caplog):
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
-    mocker.patch('requests.put', side_effect=requests.exceptions.ReadTimeout())
-    dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
-    assert dp.name == 'myDp'
-    assert dp.ip == '127.0.0.1'
-    assert 'rest-mgmt' in caplog.text
+    with requests_mock.mock() as m:
+        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
+              exc=requests.exceptions.ReadTimeout())
+        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default',
+              exc=requests.exceptions.ReadTimeout())
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
+              exc=requests.exceptions.ReadTimeout())
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
+        assert dp.name == 'myDp'
+        assert dp.ip == '127.0.0.1'
+        assert 'rest-mgmt' in caplog.text
 
 
 def test_datapower_instance_connecttimeout(caplog, mocker):
-    mocker.patch('requests.put', side_effect=requests.exceptions.ConnectTimeout())
-    dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
-    assert dp.name == 'myDp'
-    assert dp.ip == '127.0.0.1'
-    assert 'rest-mgmt' in caplog.text
+    with requests_mock.mock() as m:
+        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
+              exc=requests.exceptions.ReadTimeout())
+        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default',
+              exc=requests.exceptions.ReadTimeout())
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
+              exc=requests.exceptions.ReadTimeout())
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
+        assert dp.name == 'myDp'
+        assert dp.ip == '127.0.0.1'
+        assert 'rest-mgmt' in caplog.text
 
 
 def test_product_fishing(mocker):
@@ -115,3 +132,13 @@ def test_product_fishing(mocker):
     assert new_net.password == 'not-a-password'
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_service.called
+
+
+def test_analytics_fishing(mocker):
+    mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod')
+    mocker.patch('kubernetes.client.CoreV1Api.connect_get_namespaced_pod_exec')
+    new_net = analytics_net.AnalyticsNet({}, boaty)
+    new_net.fish()
+    assert config.load_incluster_config.called
+    assert client.CoreV1Api.list_namespaced_pod.called
