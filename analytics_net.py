@@ -24,6 +24,7 @@ class AnalyticsNet(object):
     in_cluster = True
     gauges = {}
     hostname = None
+    certificates = None
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -60,18 +61,18 @@ class AnalyticsNet(object):
         for item in secrets_response.items:
             if item.metadata.name.startswith('analytics-storage-velox-certs'):
                 secret = item
-        
-        cert = base64.b64decode(secret.data['analytics-storage_client_public.cert.pem'])
-        key = base64.b64decode(secret.data['analytics-storage_client_private.key.pem'])
-        combined = key + "\n".encode() + cert
-        self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
-        with self.certificates as certfile:
-            certfile.write(combined.decode())
+        if secret:
+            cert = base64.b64decode(secret.data['analytics-storage_client_public.cert.pem'])
+            key = base64.b64decode(secret.data['analytics-storage_client_private.key.pem'])
+            combined = key + "\n".encode() + cert
+            self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
+            with self.certificates as certfile:
+                certfile.write(combined.decode())
 
 
     def fish(self):
         if self.hostname:
-            r = requests.get('https://{}/_cluster/health'.format(self.hostname),verify=False,
+            r = requests.get('https://{}/_cluster/health'.format(self.hostname), verify=False,
             cert=self.certificates.name)
 
             health_obj = r.json()

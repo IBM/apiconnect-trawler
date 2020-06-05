@@ -136,9 +136,10 @@ def test_product_fishing(mocker):
 
 def test_analytics_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod')
-    mocker.patch('kubernetes.client.CoreV1Api.connect_get_namespaced_pod_exec')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_secret')
     new_net = analytics_net.AnalyticsNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
-    assert client.CoreV1Api.list_namespaced_pod.called
+    assert client.CoreV1Api.list_namespaced_service.called
+    assert client.CoreV1Api.list_namespaced_secret.called
