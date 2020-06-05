@@ -1,9 +1,12 @@
 import yaml
 import logging
+import tempfile
 from kubernetes import client, config
 from kubernetes.stream import stream
 from prometheus_client import Gauge
 import urllib3
+import base64
+import requests
 
 urllib3.disable_warnings()
 logger = logging.getLogger(__name__)
@@ -20,6 +23,7 @@ class AnalyticsNet(object):
     data_time = 0
     in_cluster = True
     gauges = {}
+    hostname = None
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -29,32 +33,49 @@ class AnalyticsNet(object):
         self.namespace = config.get('namespace', 'default')
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
-
-    def fish(self):
         if self.in_cluster:
-            config.load_incluster_config()
+            self.find_hostname_and_certs()
         else:
-            config.load_kube_config()
+            logger.error("Analytics metrics only available in cluster")
+
+    def find_hostname_and_certs(self):
+        logger.info("In cluster, so looking for analytics-storage service")
+        config.load_incluster_config()
         # Initialise the k8s API
         v1 = client.CoreV1Api()
-        # Identify analytics pods
-        podlist = v1.list_namespaced_pod(self.namespace)
-        podname = None
+        # Identify juhu service
+        servicelist = v1.list_namespaced_service(namespace=self.namespace)
+        logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
+        for service in servicelist.items:
+            if 'analytics-storage' in service.metadata.name:
+                for port_object in service.spec.ports:
+                    if port_object.name == 'http-es':
+                        port = port_object.port
+                self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
+                logger.info("Identified service host: {}".format(self.hostname))
 
-        for pod in podlist.items:
-            if 'analytics-storage-data' in pod.metadata.name:
-                podname = pod.metadata.name
-                break
-        if podname:
-            health_command = ['curl_es', '-s', '_cluster/health']
-            # Calling exec and waiting for response
-            health = stream(v1.connect_get_namespaced_pod_exec,
-                            podname,
-                            namespace=self.namespace,
-                            command=health_command,
-                            stderr=True, stdin=False,
-                            stdout=True, tty=False)
-            health_obj = yaml.safe_load(health)
+        # Get certificates to communicate with analytics
+        secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
+        secret = None
+        for item in secrets_response.items:
+            if item.metadata.name.startswith('analytics-storage-velox-certs'):
+                secret = item
+        
+        cert = base64.b64decode(secret.data['analytics-storage_client_public.cert.pem'])
+        key = base64.b64decode(secret.data['analytics-storage_client_private.key.pem'])
+        combined = key + "\n".encode() + cert
+        self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
+        with self.certificates as certfile:
+            certfile.write(combined.decode())
+
+
+    def fish(self):
+        if self.hostname:
+            r = requests.get('https://{}/_cluster/health'.format(self.hostname),verify=False,
+            cert=self.certificates.name)
+
+            health_obj = r.json()
+            logger.info(r.text)
 
             self.set_gauge('analytics_data_nodes_total', health_obj['number_of_data_nodes'])
             self.set_gauge('analytics_active_primary_shards_total', health_obj['active_primary_shards'])
@@ -80,5 +101,5 @@ class AnalyticsNet(object):
 
 
 if __name__ == "__main__":
-    net = AnalyticsNet({"in_cluster": False, "namespace": "apic-analytics"}, None)
+    net = AnalyticsNet({"in_cluster": True, "namespace": "apic-management"}, None)
     net.fish()

@@ -4,5 +4,5 @@ metadata:
   name: trawler
 rules:
 - apiGroups: [""]
-  resources: ["pods","services"]
+  resources: ["pods","services","secrets"]
   verbs: ["get","list"]
