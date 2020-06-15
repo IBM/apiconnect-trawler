@@ -27,6 +27,7 @@ class ManagerNet(object):
     data_time = 0
     use_kubeconfig = False
     gauges = {}
+    errored = False
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -72,6 +73,10 @@ class ManagerNet(object):
                     return hostname
 
     def fish(self):
+        if self.errored:
+            logger.debug("Disabled because a fatal error already occurred")
+            return
+
         # Allow 10 seconds to run
         if self.token_expires - 10 < time.time():
             self.get_token(self.hostname)
@@ -134,6 +139,9 @@ class ManagerNet(object):
             self.token = json_data['access_token']
             self.token_expires = json_data['expires_in'] + time.time()
             logger.info("Token expires at {} UTC".format(datetime.datetime.utcfromtimestamp(int(self.token_expires))))
+        else:
+            logger.error("Disabled manager net as failed to get bearer token: {}".format(response.status_code))
+            self.errored = True
 
     def set_gauge(self, target_name, value):
         if type(value) is float or type(value) is int:
