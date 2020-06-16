@@ -1,0 +1,10 @@
+language: python
+python:
+- '3.8'
+install:
+  - pip install -r requirements-dev.txt
+  - pip install -r requirements.txt
+script:
+  - SECRETS=test-assets coverage run --source . -m py.test
+  - coverage report
+
