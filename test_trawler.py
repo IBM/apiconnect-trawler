@@ -31,8 +31,8 @@ def test_trawl(caplog, mocker):
     boaty.config['nets'] = {}
     mocker.patch('time.sleep', side_effect=KeyboardInterrupt())
     with pytest.raises(KeyboardInterrupt):
-      print(boaty.config)
-      boaty.trawl_metrics()
+        print(boaty.config)
+        boaty.trawl_metrics()
     assert 'prometheus' in boaty.config
     assert 'graphite' in boaty.config
     assert 'INFO' in caplog.text

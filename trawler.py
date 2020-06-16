@@ -38,7 +38,7 @@ class Trawler(object):
         if config_file:
             self.load_config(config_file)
         if 'logging' in self.config:
-          logging.config.dictConfig(self.config['logging'])
+            logging.config.dictConfig(self.config['logging'])
         self.logger = logging.getLogger(__name__)
         if self.config['prometheus']['enabled']:
             port = self.config['prometheus'].get('port')

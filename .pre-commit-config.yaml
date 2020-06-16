@@ -5,4 +5,4 @@ repos:
     rev: 'master'  # Use the sha / tag you want to point at
     hooks:
     -   id: flake8
-        args: ['--ignore=E402,E111']
+        args: []
