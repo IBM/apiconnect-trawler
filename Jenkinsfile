@@ -17,11 +17,11 @@ veloxPipeline { p ->
         // For easier referencing by other Jenkins builds/jobs
         env.ARTIFACTS_BUILD = "${buildInfo.name}/${buildInfo.number}"
     }
-  if (tag) {
-      env.DOCKER_TAG = "${tag}"
-  } else {
-    env.DOCKER_TAG = "build${currentBuild.id}" 
-  }
+    if (tag) {
+        env.DOCKER_TAG = "${tag}"
+    } else {
+        env.DOCKER_TAG = "build${currentBuild.id}" 
+    }
     env.DOCKER_IMAGE = "${env.DOCKER_REPO}/velox/${env.BRANCH_NAME}/trawler"
 
     p.common {
