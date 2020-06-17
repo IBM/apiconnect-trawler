@@ -1,0 +1,60 @@
+### WARNING: this file is supported from Sysdig Agent 0.80.0
+# apiVersion: extensions/v1beta1  # If you are in Kubernetes version 1.8 or less please use this line instead of the following one
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trawler
+  labels:
+    app: trawler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trawler
+  template:
+    metadata:
+      labels:
+        app: trawler
+      annotations:
+        prometheus.io/path: /
+        prometheus.io/port: "63512"
+        prometheus.io/scrape: "true"
+    spec:
+      volumes:
+      - name: trawler-config
+        configMap:
+          name: trawler
+          optional: true
+      - name: trawler-secrets
+        secret:
+          secretName: trawler
+      hostNetwork: false
+      dnsPolicy: ClusterFirstWithHostNet
+      hostPID: true
+      serviceAccount: trawler
+      tolerations:
+        - effect: NoSchedule
+          key: node-role.kubernetes.io/master
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: trawler
+        image: trawler:latest
+        imagePullPolicy: Always
+        securityContext:
+          privileged: false
+        resources:
+          requests:
+            cpu: 200m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        readinessProbe:
+          exec:
+            command: [ "test", "-e", "/app/trawler.py" ]
+          initialDelaySeconds: 10
+        volumeMounts:
+        - mountPath: /app/config
+          name: trawler-config
+        - mountPath: /app/secrets
+          name: trawler-secrets

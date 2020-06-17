@@ -1,0 +1,11 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: trawler
+subjects:
+- kind: ServiceAccount
+  name: trawler
+roleRef:
+  kind: ClusterRole
+  name: trawler
+  apiGroup: rbac.authorization.k8s.io

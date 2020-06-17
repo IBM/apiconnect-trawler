@@ -1,0 +1,16 @@
+# Example configuration file
+prometheus:
+  port: 63512 
+  enabled: true
+nets:
+  datapower:
+    enabled: true
+    username: admin
+    namespace: apic-gateway
+  manager:
+    enabled: true
+    username: trawler-monitor
+    namespace: apic-management
+  analytics:
+    enabled: true
+    namespace: apic-analytics
