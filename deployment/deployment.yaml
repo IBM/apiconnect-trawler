@@ -5,16 +5,16 @@ kind: Deployment
 metadata:
   name: trawler
   labels:
-    app: trawler
+    app.kubernetes.io/name: trawler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trawler
+      app.kubernetes.io/name: trawler
   template:
     metadata:
       labels:
-        app: trawler
+        app.kubernetes.io/name: trawler
       annotations:
         prometheus.io/path: /
         prometheus.io/port: "63512"
@@ -38,10 +38,14 @@ spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: trawler
-        image: trawler:latest
+        image: rickymoorhouse/trawler:latest
         imagePullPolicy: Always
         securityContext:
           privileged: false
+        ports:
+        - containerPort: 63512 
+          name: metrics
+          protocol: TCP
         resources:
           requests:
             cpu: 200m

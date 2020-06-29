@@ -88,7 +88,7 @@ def test_datapower_instance(mocker, caplog):
         m.put('/mgmt/config/apiconnect/Statistics/default', text='')
 
         dp.fetch_data('LogTargetStatus', 'test')
-        assert 'Creating gauges' in caplog.text
+        assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
         assert REGISTRY.get_sample_value('test_EventsProcessed', labels={"pod": "myDp"}) == 210938
         assert REGISTRY.get_sample_value('test_EventsDropped', labels={"pod": "myDp"}) == 0
