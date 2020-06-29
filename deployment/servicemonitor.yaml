@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: trawler
+  name: trawler
+spec:
+  endpoints:
+  - port: metrics
+    path: /
+  jobLabel: trawler
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: trawler

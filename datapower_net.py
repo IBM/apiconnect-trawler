@@ -151,7 +151,7 @@ class DataPower(object):
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if target_name not in self.gauges:
-                logger.info("Creating gauges")
+                logger.info("Creating gauge {}".format(target_name))
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name, ['pod'])
@@ -160,7 +160,7 @@ class DataPower(object):
             self.gauges[target_name].labels(self.name).set(value)
 
     def fetch_data(self, provider, label, suffix=''):
-        logger.info("Processing status provider {}".format(provider))
+        logger.debug("Processing status provider {}".format(provider))
         url = "https://{}:{}/mgmt/status/{}/{}".format(
             self.ip,
             self.port,
