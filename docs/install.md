@@ -1,8 +1,22 @@
-# Prometheus discovery
+# Installing Trawler
+
+To install trawler, you can make use of the sample yaml files within the [deployment](../deployment) folder. You will need to customise these according to your deployment in the following ways:
+
+ - Adjustments to `config.yaml`:
+     - Change namespace pointers to the appropriate namespace you have the API Connect components deployed in.
+     - Select which nets you want to enable.
+     - Set the usernames for datapower and cloud manager.
+ - Adjustments to `kustomization.yaml`:
+     - Set the namespace you would like to deploy trawler into.
+     - Uncomment secret.yaml if you wish to include creation of secrets.
+     - Uncomment servicemonitor.yaml and service.yaml if you are using the prometheus operator model.
+ - Set secrets for password values either through base64 encoded values in secret.yaml or through your usual method for managing secrets.
+
+## Prometheus discovery
 
 The example yaml files in the deployment folder are configured to annotate the trawler pod so that if you have prometheus configured to discover based on the set of prometheus.io labels it should discover and scrape metrics from trawler automatically.
 
-# Prometheus Operator model
+## Prometheus Operator model
 
 In the operator model you will need to ensure that prometheus-operator is deployed with the option `--set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false` ([ref](https://github.com/helm/charts/issues/11310)) - this causes it not to pick up any ServiceMonitors that do not match the helm deployment labels. 
 
@@ -20,7 +34,4 @@ Alternatively you can adjust the deployment of the trawler pod to match the sear
 
 In this case prometheus-operator is configured to look for serviceMonitors set up with the release `prom-operator`.
 
-
-
-Reference on the operator model:
- - https://coreos.com/operators/prometheus/docs/latest/user-guides/getting-started.html
+For more details on the prometheus operator model see https://coreos.com/operators/prometheus/docs/latest/user-guides/getting-started.html
