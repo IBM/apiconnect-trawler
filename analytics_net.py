@@ -71,7 +71,7 @@ class AnalyticsNet(object):
                              cert=self.certificates.name)
 
             health_obj = r.json()
-            logger.info(r.text)
+            logger.debug(r.text)
 
             self.set_gauge('analytics_data_nodes_total', health_obj['number_of_data_nodes'])
             self.set_gauge('analytics_active_primary_shards_total', health_obj['active_primary_shards'])
@@ -90,7 +90,7 @@ class AnalyticsNet(object):
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name)
-            logger.warning("Setting gauge {} to {}".format(target_name, value))
+            logger.debug("Setting gauge {} to {}".format(target_name, value))
             self.gauges[target_name].set(value)
         else:
             logger.warning("{} is not float or int".format(value))
