@@ -11,6 +11,8 @@ Trawler is designed to run within the same kubernetes cluster as API Connect, su
 
 It requires a service account with read access to list pods and services in the namespace(s) the API Connect components are deployed in.
 
+[More details on installing trawler](docs/install.md)
+
 ### Configuring trawler
 
 Trawler gets its config from a mounted configmap containing config.yaml which looks like this:
