@@ -5,16 +5,16 @@ kind: Deployment
 metadata:
   name: trawler
   labels:
-    app.kubernetes.io/name: trawler
+    app: trawler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: trawler
+      app: trawler
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: trawler
+        app: trawler
       annotations:
         prometheus.io/path: /
         prometheus.io/port: "63512"

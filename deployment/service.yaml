@@ -4,7 +4,7 @@ metadata:
   annotations:
     prometheus.io/scrape: "true"
   labels:
-    app.kubernetes.io/name: trawler
+    app: trawler
   name: trawler
 spec:
   ports:
@@ -13,6 +13,6 @@ spec:
     protocol: TCP
     targetPort: 63512
   selector:
-    app.kubernetes.io/name: trawler
+    app: trawler
   sessionAffinity: None
   type: ClusterIP

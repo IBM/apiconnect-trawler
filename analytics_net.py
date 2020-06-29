@@ -21,6 +21,7 @@ class AnalyticsNet(object):
     gauges = {}
     hostname = None
     certificates = None
+    status_map = {"green": 2, "yellow": 1, "red": 0}
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -72,7 +73,12 @@ class AnalyticsNet(object):
 
             health_obj = r.json()
             logger.debug(r.text)
+            try:
+              cluster_status = self.status_map[health_obj['status']]
+            except KeyError:
+              cluster_status = -1
 
+            self.set_gauge('analytics_cluster_status', cluster_status)
             self.set_gauge('analytics_data_nodes_total', health_obj['number_of_data_nodes'])
             self.set_gauge('analytics_active_primary_shards_total', health_obj['active_primary_shards'])
             self.set_gauge('analytics_active_shards_total', health_obj['active_shards'])
@@ -86,7 +92,7 @@ class AnalyticsNet(object):
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if target_name not in self.gauges:
-                logger.info("Creating gauges")
+                logger.info("Creating gauge {}".format(target_name))
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name)

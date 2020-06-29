@@ -4,7 +4,7 @@ import time
 import datetime
 import logging
 from kubernetes import client, config
-from prometheus_client import Gauge
+from prometheus_client import Gauge, Info
 import urllib3
 
 urllib3.disable_warnings()
@@ -28,6 +28,7 @@ class ManagerNet(object):
     use_kubeconfig = False
     gauges = {}
     errored = False
+    version = None
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -44,6 +45,7 @@ class ManagerNet(object):
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
+        self.version = Info('apiconnect_version', 'Deployed version of API Connect')
         self.hostname = self.find_hostname()
 
     def find_hostname(self):
@@ -68,6 +70,10 @@ class ManagerNet(object):
                     for port_object in service.spec.ports:
                         if port_object.name == 'https-platform' or port_object.name == 'platform-api':
                             port = port_object.port
+                    self.version.info({
+                        'version': service.metadata.annotations.get('productVersion', 'unknown'),
+                        'release': service.metadata.annotations.get('release', 'unknown')
+                    })
                     hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
                     logger.info("Identified service host: {}".format(hostname))
                     return hostname

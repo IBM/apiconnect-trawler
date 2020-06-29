@@ -9,8 +9,10 @@ resources:
 - serviceaccount.yaml
 - clusterrole.yaml
 - clusterrolebinding.yaml
+# Uncomment secret.yaml if you have set passwords in it
+# - secret.yaml
 #  Uncomment the following if you are using prometheus-operator
 # - service.yaml
 # - servicemonitor.yaml
 
-namespace: monitoring
+namespace: apic-monitoring

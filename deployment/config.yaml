@@ -4,12 +4,12 @@ prometheus:
   enabled: true
 nets:
   datapower:
-    enabled: true
+    enabled: false
     username: admin
     namespace: apic-gateway
   manager:
     enabled: true
-    username: trawler-monitor
+    username: admin
     namespace: apic-management
   analytics:
     enabled: true
