@@ -55,6 +55,7 @@ class AnalyticsNet(object):
 
         # Get certificates to communicate with analytics
         secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
+        cert = None
         for item in secrets_response.items:
             if item.metadata.name.startswith('analytics-storage-velox-certs'):
                 cert = base64.b64decode(item.data['analytics-storage_client_public.cert.pem'])
