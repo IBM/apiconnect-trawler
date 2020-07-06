@@ -44,13 +44,14 @@ class AnalyticsNet(object):
         # Identify analytics-storage service
         servicelist = v1.list_namespaced_service(namespace=self.namespace)
         logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
+        port = 9200  # default
         for service in servicelist.items:
             if 'analytics-storage' in service.metadata.name:
                 for port_object in service.spec.ports:
                     if port_object.name == 'http-es':
                         port = port_object.port
-                self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
-                logger.info("Identified service host: {}".format(self.hostname))
+                        self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
+        logger.info("Identified service host: {}".format(self.hostname))
 
         # Get certificates to communicate with analytics
         secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
@@ -80,6 +81,7 @@ class AnalyticsNet(object):
 
             self.set_gauge('analytics_cluster_status', cluster_status)
             self.set_gauge('analytics_data_nodes_total', health_obj['number_of_data_nodes'])
+            self.set_gauge('analytics_nodes_total', health_obj['number_of_nodes'])
             self.set_gauge('analytics_active_primary_shards_total', health_obj['active_primary_shards'])
             self.set_gauge('analytics_active_shards_total', health_obj['active_shards'])
             self.set_gauge('analytics_relocating_shards_total', health_obj['relocating_shards'])
