@@ -7,6 +7,7 @@ import requests_mock
 import requests
 from prometheus_client import REGISTRY
 from kubernetes import client, config
+import kubernetes
 from click.testing import CliRunner
 
 boaty = trawler.Trawler()
@@ -57,6 +58,17 @@ def test_datapower_fishing(mocker):
     new_net.fish()
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_pod.called
+
+
+def test_datapower_fishing_error(mocker, caplog):
+    mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod', side_effect=kubernetes.client.rest.ApiException)
+    new_net = datapower_net.DataPowerNet({}, boaty)
+    new_net.fish()
+    assert config.load_incluster_config.called
+    assert client.CoreV1Api.list_namespaced_pod.called
+    assert 'Error calling kubernetes API' in caplog.text
+    assert 'kubernetes.client.rest.ApiException' in caplog.text
 
 
 def test_datapower_instance(mocker, caplog):
@@ -123,15 +135,15 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
         assert 'rest-mgmt' in caplog.text
 
 
-def test_manager_fishing(mocker):
+def test_manager_fishing_error(mocker, caplog):
     mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
-    with requests_mock.mock() as m:
-        m.get(url='https://example.com', text='{"counts":{"blah":189}}')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service', side_effect=kubernetes.client.rest.ApiException)
     new_net = manager_net.ManagerNet({}, boaty)
     assert new_net.password == 'not-a-password'
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_service.called
+    assert 'Error calling kubernetes API' in caplog.text
+    assert 'kubernetes.client.rest.ApiException' in caplog.text
 
 
 def test_analytics_fishing(mocker):

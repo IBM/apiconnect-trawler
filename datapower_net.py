@@ -38,29 +38,33 @@ class DataPowerNet(object):
             config.load_kube_config()
         else:
             config.load_incluster_config()
-        # Initialise the k8s API
-        v1 = client.CoreV1Api()
-        # Retreive pod list for namespace
-        ret = v1.list_namespaced_pod(namespace=self.namespace)
-        for i in ret.items:
-            # Only look at pods with the restPort defined
-            if 'restPort' in i.metadata.annotations and i.status.pod_ip:
-                key = "{ip}:{port}".format(ip=i.status.pod_ip, port=i.metadata.annotations['restPort'])
-                if key in self.items:
-                    logger.debug("Seen existing DP again - just get metrics")
-                else:
-                    if self.use_kubeconfig:
-                        ip = '127.0.0.1'
+        try:
+            # Initialise the k8s API
+            v1 = client.CoreV1Api()
+            # Retreive pod list for namespace
+            ret = v1.list_namespaced_pod(namespace=self.namespace)
+            for i in ret.items:
+                # Only look at pods with the restPort defined
+                if 'restPort' in i.metadata.annotations and i.status.pod_ip:
+                    key = "{ip}:{port}".format(ip=i.status.pod_ip, port=i.metadata.annotations['restPort'])
+                    if key in self.items:
+                        logger.debug("Seen existing DP again - just get metrics")
                     else:
-                        ip = i.status.pod_ip
-                    self.items[key] = DataPower(
-                        ip=ip,
-                        port=i.metadata.annotations['restPort'],
-                        name=i.metadata.name,
-                        username=self.username,
-                        password=self.password)
-                self.items[key].gather_metrics()
-                logger.info("DataPowers in list: {}".format(len(self.items)))
+                        if self.use_kubeconfig:
+                            ip = '127.0.0.1'
+                        else:
+                            ip = i.status.pod_ip
+                        self.items[key] = DataPower(
+                            ip=ip,
+                            port=i.metadata.annotations['restPort'],
+                            name=i.metadata.name,
+                            username=self.username,
+                            password=self.password)
+                    self.items[key].gather_metrics()
+                    logger.info("DataPowers in list: {}".format(len(self.items)))
+        except client.rest.ApiException as e:
+            logger.error("Error calling kubernetes API")
+            logger.exception(e)
 
 
 class DataPower(object):

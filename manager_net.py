@@ -51,33 +51,37 @@ class ManagerNet(object):
         self.hostname = self.find_hostname()
 
     def find_hostname(self):
-        if self.use_kubeconfig:
-            config.load_kube_config()
-            v1beta = client.ExtensionsV1beta1Api()
-            ingresslist = v1beta.list_namespaced_ingress(namespace='apic-management')
-            for ing in ingresslist.items:
-                if ing.metadata.name.endswith('apiconnect-api'):
-                    logger.info("Identified ingress host: {}".format(ing.spec.rules[0].host))
-                    return ing.spec.rules[0].host
-        else:
-            logger.info("In cluster, so looking for juhu service")
-            config.load_incluster_config()
-            # Initialise the k8s API
-            v1 = client.CoreV1Api()
-            # Identify juhu service
-            servicelist = v1.list_namespaced_service(namespace=self.namespace)
-            logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
-            for service in servicelist.items:
-                if 'juhu' in service.metadata.name:
-                    for port_object in service.spec.ports:
-                        if port_object.name == 'https-platform' or port_object.name == 'platform-api':
-                            port = port_object.port
-                    self.version.labels(
-                        service.metadata.annotations.get('productVersion', 'unknown'),
-                        service.metadata.annotations.get('release', 'unknown')).set(1)
-                    hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
-                    logger.info("Identified service host: {}".format(hostname))
-                    return hostname
+        try:
+            if self.use_kubeconfig:
+                config.load_kube_config()
+                v1beta = client.ExtensionsV1beta1Api()
+                ingresslist = v1beta.list_namespaced_ingress(namespace='apic-management')
+                for ing in ingresslist.items:
+                    if ing.metadata.name.endswith('apiconnect-api'):
+                        logger.info("Identified ingress host: {}".format(ing.spec.rules[0].host))
+                        return ing.spec.rules[0].host
+            else:
+                logger.info("In cluster, so looking for juhu service")
+                config.load_incluster_config()
+                # Initialise the k8s API
+                v1 = client.CoreV1Api()
+                # Identify juhu service
+                servicelist = v1.list_namespaced_service(namespace=self.namespace)
+                logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
+                for service in servicelist.items:
+                    if 'juhu' in service.metadata.name:
+                        for port_object in service.spec.ports:
+                            if port_object.name == 'https-platform' or port_object.name == 'platform-api':
+                                port = port_object.port
+                        self.version.labels(
+                            service.metadata.annotations.get('productVersion', 'unknown'),
+                            service.metadata.annotations.get('release', 'unknown')).set(1)
+                        hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
+                        logger.info("Identified service host: {}".format(hostname))
+                        return hostname
+        except client.rest.ApiException as e:
+            logger.error("Error calling kubernetes API")
+            logger.exception(e)
 
     def fish(self):
         if self.errored:

@@ -38,38 +38,42 @@ class AnalyticsNet(object):
 
     def find_hostname_and_certs(self):
         logger.info("In cluster, so looking for analytics-storage service")
-        config.load_incluster_config()
-        # Initialise the k8s API
-        v1 = client.CoreV1Api()
-        # Identify analytics-storage service
-        servicelist = v1.list_namespaced_service(namespace=self.namespace)
-        logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
-        port = 9200  # default
-        for service in servicelist.items:
-            if 'analytics-storage' in service.metadata.name:
-                for port_object in service.spec.ports:
-                    if port_object.name == 'http-es':
-                        port = port_object.port
-                        self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
-        logger.info("Identified service host: {}".format(self.hostname))
+        try:
+            config.load_incluster_config()
+            # Initialise the k8s API
+            v1 = client.CoreV1Api()
+            # Identify analytics-storage service
+            servicelist = v1.list_namespaced_service(namespace=self.namespace)
+            logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
+            port = 9200  # default
+            for service in servicelist.items:
+                if 'analytics-storage' in service.metadata.name:
+                    for port_object in service.spec.ports:
+                        if port_object.name == 'http-es':
+                            port = port_object.port
+                            self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
+            logger.info("Identified service host: {}".format(self.hostname))
 
-        # Get certificates to communicate with analytics
-        secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
-        cert = None
-        for item in secrets_response.items:
-            if item.metadata.name.startswith('analytics-storage-velox-certs'):
-                cert = base64.b64decode(item.data['analytics-storage_client_public.cert.pem'])
-                key = base64.b64decode(item.data['analytics-storage_client_private.key.pem'])
-                break
-            elif item.metadata.name == 'analytics-client':
-                cert = base64.b64decode(item.data['tls.crt'])
-                key = base64.b64decode(item.data['tls.key'])
-                break
-        if cert:
-            combined = key + "\n".encode() + cert
-            self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
-            with self.certificates as certfile:
-                certfile.write(combined.decode())
+            # Get certificates to communicate with analytics
+            secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
+            cert = None
+            for item in secrets_response.items:
+                if item.metadata.name.startswith('analytics-storage-velox-certs'):
+                    cert = base64.b64decode(item.data['analytics-storage_client_public.cert.pem'])
+                    key = base64.b64decode(item.data['analytics-storage_client_private.key.pem'])
+                    break
+                elif item.metadata.name == 'analytics-client':
+                    cert = base64.b64decode(item.data['tls.crt'])
+                    key = base64.b64decode(item.data['tls.key'])
+                    break
+            if cert:
+                combined = key + "\n".encode() + cert
+                self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
+                with self.certificates as certfile:
+                    certfile.write(combined.decode())
+        except client.rest.ApiException as e:
+            logger.error('Error calling kubernetes API')
+            logger.exception(e)
 
     def fish(self):
         if self.hostname:
