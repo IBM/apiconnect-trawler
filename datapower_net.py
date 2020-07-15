@@ -110,6 +110,8 @@ class DataPower(object):
             logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ReadTimeout:
             logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ConnectionError:
+            logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
     def enable_statistics(self):
         try:
@@ -135,6 +137,8 @@ class DataPower(object):
             logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ReadTimeout:
             logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ConnectionError:
+            logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
     def gather_metrics(self):
         try:
@@ -150,6 +154,8 @@ class DataPower(object):
             logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ReadTimeout:
             logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
+        except requests.exceptions.ConnectionError:
+            logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
     def set_gauge(self, target_name, value):
         if type(value) is float or type(value) is int:
