@@ -45,7 +45,7 @@ class DataPowerNet(object):
             ret = v1.list_namespaced_pod(namespace=self.namespace)
             for i in ret.items:
                 # Only look at pods with the restPort defined
-                if 'restPort' in i.metadata.annotations and i.status.pod_ip:
+                if i.metadata.annotations and 'restPort' in i.metadata.annotations and i.status.pod_ip:
                     key = "{ip}:{port}".format(ip=i.status.pod_ip, port=i.metadata.annotations['restPort'])
                     if key in self.items:
                         logger.debug("Seen existing DP again - just get metrics")
