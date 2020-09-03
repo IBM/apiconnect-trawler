@@ -6,11 +6,11 @@ nets:
   datapower:
     enabled: true
     username: admin
-    namespace: apic-gateway
+    namespace: apic
   manager:
     enabled: true
     username: admin
-    namespace: apic-management
+    namespace: apic
   analytics:
     enabled: true
-    namespace: apic-analytics
+    namespace: apic
