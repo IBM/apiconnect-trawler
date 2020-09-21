@@ -6,6 +6,7 @@ import logging
 from kubernetes import client, config
 from prometheus_client import Gauge
 import urllib3
+import base64
 
 urllib3.disable_warnings()
 logger = logging.getLogger(__name__)
@@ -38,10 +39,17 @@ class ManagerNet(object):
         self.namespace = config.get('namespace', 'default')
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
-        # Cloud manager username to use for REST calls
-        self.username = config.get('username', 'admin')
-        # Load password from secret `cloudmanager_password`
-        self.password = trawler.read_secret('cloudmanager_password')
+        if 'secret' in config:
+            # If config points to a secret, then load from that
+            # either in this namespace, or the specified one
+            self.load_credentials_from_secret(
+                config.get('secret'),
+                config.get('secret_namespace', self.namespace))
+        else:
+            # Cloud manager username to use for REST calls
+            self.username = config.get('username', 'admin')
+            # Load password from secret `cloudmanager_password`
+            self.password = trawler.read_secret('cloudmanager_password')
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
@@ -49,6 +57,21 @@ class ManagerNet(object):
                              "A metric with a constant '1' value labeled with API Connect version details",
                              ["version", "juhu_release"])
         self.hostname = self.find_hostname()
+
+    def load_credentials_from_secret(self, namespace, secret_name):
+        try:
+            if self.use_kubeconfig:
+                config.load_kube_config()
+            else:
+                config.load_incluster_config()
+            v1 = client.CoreV1Api()
+            # Get certificates to communicate with analytics
+            secrets_response = v1.read_namespaced_secret(secret_name, namespace=namespace)
+            self.password = base64.b64decode(secrets_response.data['password'])
+            self.username = base64.b64decode(secrets_response.data['username'])
+        except client.rest.ApiException as e:
+            logger.error('Error calling kubernetes API')
+            logger.exception(e)        
 
     def find_hostname(self):
         try:

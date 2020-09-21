@@ -52,7 +52,8 @@ class AnalyticsNet(object):
                         if port_object.name == 'http-es':
                             port = port_object.port
                             self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
-            logger.info("Identified service host: {}".format(self.hostname))
+            if self.hostname:
+              logger.info("Identified service host: {}".format(self.hostname))
 
             # Get certificates to communicate with analytics
             secrets_response = v1.list_namespaced_secret(namespace=self.namespace)
