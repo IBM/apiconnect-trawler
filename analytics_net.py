@@ -45,12 +45,13 @@ class AnalyticsNet(object):
             # Identify analytics-storage service
             servicelist = v1.list_namespaced_service(namespace=self.namespace)
             logger.info("found {} services in namespace {}".format(len(servicelist.items), self.namespace))
-            port = 9200  # default
             for service in servicelist.items:
                 if 'analytics-storage' in service.metadata.name:
                     for port_object in service.spec.ports:
                         if port_object.name == 'http-es':
-                            port = port_object.port
+                            port = 9200  # default
+                            if port_object.port:
+                                port = port_object.port
                             self.hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
             if self.hostname:
               logger.info("Identified service host: {}".format(self.hostname))
