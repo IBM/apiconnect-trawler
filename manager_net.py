@@ -58,20 +58,21 @@ class ManagerNet(object):
                              ["version", "juhu_release"])
         self.hostname = self.find_hostname()
 
-    def load_credentials_from_secret(self, namespace, secret_name):
+    def load_credentials_from_secret(self, secret_name, namespace):
         try:
             if self.use_kubeconfig:
                 config.load_kube_config()
             else:
                 config.load_incluster_config()
             v1 = client.CoreV1Api()
+            logger.info("Loading cloud manager credentials from secret {} in namespace {}".format(secret_name, namespace))
             # Get certificates to communicate with analytics
-            secrets_response = v1.read_namespaced_secret(secret_name, namespace=namespace)
+            secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
             self.password = base64.b64decode(secrets_response.data['password'])
             self.username = base64.b64decode(secrets_response.data['username'])
         except client.rest.ApiException as e:
             logger.error('Error calling kubernetes API')
-            logger.exception(e)        
+            logger.exception(e)
 
     def find_hostname(self):
         try:

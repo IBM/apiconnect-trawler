@@ -104,7 +104,7 @@ class AnalyticsNet(object):
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if target_name not in self.gauges:
-                logger.info("Creating gauge {}".format(target_name))
+                logger.debug("Creating gauge {}".format(target_name))
                 self.gauges[target_name] = Gauge(
                     target_name,
                     target_name)
