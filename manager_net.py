@@ -68,8 +68,9 @@ class ManagerNet(object):
             logger.info("Loading cloud manager credentials from secret {} in namespace {}".format(secret_name, namespace))
             # Get certificates to communicate with analytics
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
-            self.password = base64.b64decode(secrets_response.data['password'])
-            self.username = base64.b64decode(secrets_response.data['username'])
+            self.password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
+            self.username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
+            logger.info("Username to use is {}, password length is {}".format(self.username, len(self.password)))
         except client.rest.ApiException as e:
             logger.error('Error calling kubernetes API')
             logger.exception(e)
