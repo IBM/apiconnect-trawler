@@ -48,6 +48,11 @@ Each of the different areas of metrics is handled by a separate net, which can b
  - cloudmanager_password - password to use with the manager net to retreive API Connect usage metrics.
 
 
+## More documentation
+
+ - [Metrics gathered by trawler](docs/metrics.md)
+ - [Install](docs/install.md)
+ - [Frequently asked questions](docs/faq.md)
 
 
 ## Development tips
