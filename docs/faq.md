@@ -4,7 +4,7 @@ If you are running gateways/analytics separately to the manager components, traw
 
 ## Trawler requires a password to connect to the Datapower instance. Can I create a separate account for this?
 
-Yes - I'm not sure what the privileges need to be - I need to get this figured out and documented - I notice at the moment I have a section in there that is attempting to enable statistics - which I need to remove and switch to check if it's enabled - trawler intent is to be read-only
+Yes, a specific account can be specified for trawler to use.  The intent is for trawler to only need read-only access, however currently there it is also attempting to enable statistics - which needs to be switched to check for statistics - [issue](https://github.com/IBM/apiconnect-trawler/issues/4).
 
 ## Does trawler require the Datapower REST API to be exposed?
 
