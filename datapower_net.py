@@ -44,9 +44,12 @@ class DataPowerNet(object):
             # Retreive pod list for namespace
             ret = v1.list_namespaced_pod(namespace=self.namespace)
             for i in ret.items:
-                # Only look at pods with the restPort defined
-                if i.metadata.annotations and 'restPort' in i.metadata.annotations and i.status.pod_ip:
-                    key = "{ip}:{port}".format(ip=i.status.pod_ip, port=i.metadata.annotations['restPort'])
+                if (i.status.pod_ip and i.metadata.annotations and
+                        'productName' in i.metadata.annotations and
+                        'DataPower Gateway' in i.metadata.annotations['productName']):
+                    # Use default port of 5554 if not annotated
+                    port = i.metadata.annotations.get('restPort', 5554)
+                    key = "{ip}:{port}".format(ip=i.status.pod_ip, port=port)
                     if key in self.items:
                         logger.debug("Seen existing DP again - just get metrics")
                     else:
@@ -56,7 +59,7 @@ class DataPowerNet(object):
                             ip = i.status.pod_ip
                         self.items[key] = DataPower(
                             ip=ip,
-                            port=i.metadata.annotations['restPort'],
+                            port=port,
                             name=i.metadata.name,
                             username=self.username,
                             password=self.password)
