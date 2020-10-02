@@ -3,7 +3,7 @@
 
 The kind of metrics that trawler collects are currently as follows:
 
-### Management subsystem:
+### Management subsystem
  - API Connect version information (apiconnect_build_info)
  - Total users (apiconnect_users_total)
  - Number of provider_orgs (apiconnect_provider_orgs_total)
@@ -14,9 +14,9 @@ The kind of metrics that trawler collects are currently as follows:
  - Number of subscriptions (apiconnect_subscriptions_total)
 
 
-### DataPower subsystem:
- - TCP connection stats (datapower_tcp...)
- - Log target stats: events processed, dropped, pending (datapower_logtarget...)
+### DataPower subsystem
+ - TCP connection stats (datapower_tcp_{state})
+ - Log target stats: events processed, dropped, pending (datapower_logtarget_{name}_{type})
  - Object counts e.g. SSLClientProfile, APICollection, APIOperation etc. (datapower_{object}_total) 
  - HTTP Stats (datapower_http_tenSeconds/oneMinute/tenMinutes/oneDay)
 
