@@ -10,7 +10,7 @@ from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
 from prometheus_client import start_http_server
-import hemApp.drivers.metrics_graphite
+import metrics_graphite
 from prometheus_client import Gauge
 
 
