@@ -10,6 +10,8 @@ from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
 from prometheus_client import start_http_server
+import hemApp.drivers.metrics_graphite
+from prometheus_client import Gauge
 
 
 logger = logging.getLogger('trawler')
@@ -32,6 +34,8 @@ class Trawler(object):
     use_kubeconfig = True
     # Default path for secrets in container build - override with envvar SECRETS
     secrets_path = '/app/secrets'
+    graphite = None
+    gauges = {}
 
     def __init__(self, config_file=None):
         self.secrets_path = os.getenv('SECRETS', self.secrets_path)
@@ -44,6 +48,9 @@ class Trawler(object):
             port = self.config['prometheus'].get('port')
             logger.info('Starting prometheus http port at http://0.0.0.0:{}'.format(port))
             start_http_server(port)
+        if self.config['graphite']['enabled']:
+            self.graphite = hemApp.drivers.metrics_graphite.instance(self.config['graphite'])
+
         use_kubeconfig = False
         if 'trawler' in self.config:
             use_kubeconfig = self.config['trawler'].get('use_kubeconfig')
@@ -75,6 +82,35 @@ class Trawler(object):
             logger.exception(e)
             exit(2)
 
+    def set_gauge(self, component, target_name, value, pod_name=None):
+        if type(value) is float or type(value) is int:
+            target_name = target_name.replace('-', '_')
+            if self.config['prometheus']['enabled']:
+                prometheus_target = "{}_{}".format(component, target_name.replace('.', '_'))
+                if prometheus_target not in self.gauges:
+                    logger.info("Creating gauge {}".format(prometheus_target))
+                    if pod_name:
+                        self.gauges[prometheus_target] = Gauge(
+                            prometheus_target,
+                            prometheus_target, ['pod'])
+                    else:
+                        self.gauges[prometheus_target] = Gauge(
+                            prometheus_target,
+                            prometheus_target)
+
+                logger.debug("Setting gauge {} to {}".format(
+                    self.gauges[prometheus_target]._name, value))
+                if pod_name:
+                    self.gauges[prometheus_target].labels(pod_name).set(value)
+                else:
+                    self.gauges[prometheus_target].set(value)
+            if self.config['graphite']['enabled']:
+                if pod_name:
+                    metric_name = "{}.{}.{}".format(component, pod_name, target_name)
+                else: 
+                    metric_name = "{}.{}".format(component, target_name)
+                self.graphite.stage(metric_name, value)
+
     def trawl_metrics(self):
         # Initialise
         logger.info("Laying nets...")
@@ -90,6 +126,8 @@ class Trawler(object):
             logger.info("Trawling for metrics...")
             for net in nets:
                 net.fish()
+            if self.graphite:
+                self.graphite.store()
             time.sleep(self.frequency)
 
 

@@ -27,9 +27,9 @@ class ManagerNet(object):
     data = {}
     data_time = 0
     use_kubeconfig = False
-    gauges = {}
     errored = False
     version = None
+    trawler = None
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -57,6 +57,7 @@ class ManagerNet(object):
                              "A metric with a constant '1' value labeled with API Connect version details",
                              ["version", "juhu_release"])
         self.hostname = self.find_hostname()
+        self.trawler = trawler
 
     def load_credentials_from_secret(self, secret_name, namespace):
         try:
@@ -142,13 +143,7 @@ class ManagerNet(object):
             logging.warning("No token")
         if 'counts' in self.data:
             for object_type in self.data['counts']:
-                if object_type not in self.gauges:
-                    self.gauges[object_type] = Gauge(
-                        "apiconnect_{}_total".format(object_type),
-                        "Count of {} in this API Connect deployment".format(object_type))
-                logger.debug("Setting gauge apiconnect_{}_total to {}".format(
-                    object_type, self.data['counts'][object_type]))
-                self.gauges[object_type].set(self.data['counts'][object_type])
+                self.trawler.set_gauge('manager', None, object_type, self.data['counts'][object_type])
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
@@ -178,19 +173,6 @@ class ManagerNet(object):
         else:
             logger.error("Disabled manager net as failed to get bearer token: {}".format(response.status_code))
             self.errored = True
-
-    def set_gauge(self, target_name, value):
-        if type(value) is float or type(value) is int:
-            target_name = target_name.replace('-', '_')
-            if target_name not in self.gauges:
-                logger.info("Creating gauges")
-                self.gauges[target_name] = Gauge(
-                    target_name,
-                    target_name, ['pod'])
-            logger.info("Setting gauge {} to {}".format(
-                self.gauges[target_name]._name, value))
-            self.gauges[target_name].labels(self.name).set(value)
-
 
 if __name__ == "__main__":
     net = ManagerNet({"namespace": "apic-management"}, None)
