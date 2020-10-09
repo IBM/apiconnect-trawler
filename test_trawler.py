@@ -5,6 +5,7 @@ import manager_net
 import analytics_net
 import requests_mock
 import requests
+import socket
 from prometheus_client import REGISTRY
 from kubernetes import client, config
 import kubernetes
@@ -155,3 +156,20 @@ def test_analytics_fishing(mocker):
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_service.called
     assert client.CoreV1Api.list_namespaced_secret.called
+
+
+def test_metrics_graphite_stage():
+    import metrics_graphite
+    metrics = metrics_graphite.instance({"type":"graphite"})
+    length = len(metrics.cache) 
+    metrics.stage('hello', 1)
+    assert len(metrics.cache) is length + 1
+    assert "trawler.hello" in metrics.cache[length]
+
+
+def test_metrics_graphite_prefix():
+    import metrics_graphite
+    metrics = metrics_graphite.instance({"type":"graphite", "prefix":"random"})
+    assert metrics.prefix == "random"
+    metrics.stage('hello', 1)
+    assert "random." in metrics.cache[-1]
