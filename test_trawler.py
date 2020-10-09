@@ -102,9 +102,9 @@ def test_datapower_instance(mocker, caplog):
         dp.fetch_data('LogTargetStatus', 'test')
         assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
-        assert REGISTRY.get_sample_value('test_EventsProcessed', labels={"pod": "myDp"}) == 210938
-        assert REGISTRY.get_sample_value('test_EventsDropped', labels={"pod": "myDp"}) == 0
-        assert REGISTRY.get_sample_value('test_EventsPending', labels={"pod": "myDp"}) == 2
+        assert REGISTRY.get_sample_value('datapower_test_EventsProcessed', labels={"pod": "myDp"}) == 210938
+        assert REGISTRY.get_sample_value('datapower_test_EventsDropped', labels={"pod": "myDp"}) == 0
+        assert REGISTRY.get_sample_value('datapower_test_EventsPending', labels={"pod": "myDp"}) == 2
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
