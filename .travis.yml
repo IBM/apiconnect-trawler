@@ -7,4 +7,4 @@ install:
 script:
   - SECRETS=test-assets coverage run --source . -m py.test
   - coverage report
-
+  - coveralls || true
