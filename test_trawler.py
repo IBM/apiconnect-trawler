@@ -5,6 +5,7 @@ import manager_net
 import analytics_net
 import requests_mock
 import requests
+import socket
 from prometheus_client import REGISTRY
 from kubernetes import client, config
 import kubernetes
@@ -76,7 +77,7 @@ def test_datapower_instance(mocker, caplog):
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
         v5c = '{"APIConnectGatewayService":{"V5CompatibilityMode":"on"}}'
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v5c)
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert dp.v5c
@@ -102,9 +103,9 @@ def test_datapower_instance(mocker, caplog):
         dp.fetch_data('LogTargetStatus', 'test')
         assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
-        assert REGISTRY.get_sample_value('test_EventsProcessed', labels={"pod": "myDp"}) == 210938
-        assert REGISTRY.get_sample_value('test_EventsDropped', labels={"pod": "myDp"}) == 0
-        assert REGISTRY.get_sample_value('test_EventsPending', labels={"pod": "myDp"}) == 2
+        assert REGISTRY.get_sample_value('datapower_test_EventsProcessed', labels={"pod": "myDp"}) == 210938
+        assert REGISTRY.get_sample_value('datapower_test_EventsDropped', labels={"pod": "myDp"}) == 0
+        assert REGISTRY.get_sample_value('datapower_test_EventsPending', labels={"pod": "myDp"}) == 2
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
@@ -115,7 +116,7 @@ def test_datapower_instance_readtimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
@@ -129,7 +130,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password')
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
@@ -155,3 +156,20 @@ def test_analytics_fishing(mocker):
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_service.called
     assert client.CoreV1Api.list_namespaced_secret.called
+
+
+def test_metrics_graphite_stage():
+    import metrics_graphite
+    metrics = metrics_graphite.instance({"type":"graphite"})
+    length = len(metrics.cache) 
+    metrics.stage('hello', 1)
+    assert len(metrics.cache) is length + 1
+    assert "trawler.hello" in metrics.cache[length]
+
+
+def test_metrics_graphite_prefix():
+    import metrics_graphite
+    metrics = metrics_graphite.instance({"type":"graphite", "prefix":"random"})
+    assert metrics.prefix == "random"
+    metrics.stage('hello', 1)
+    assert "random." in metrics.cache[-1]

@@ -1,7 +1,6 @@
 import requests
 import logging
 from kubernetes import client, config
-from prometheus_client import Gauge
 import urllib3
 
 urllib3.disable_warnings()
@@ -27,6 +26,7 @@ class DataPowerNet(object):
         self.username = config.get('username', 'admin')
         # Load password from secret `datapower_password`
         self.password = trawler.read_secret('datapower_password')
+        self.trawler = trawler
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
@@ -62,7 +62,8 @@ class DataPowerNet(object):
                             port=port,
                             name=i.metadata.name,
                             username=self.username,
-                            password=self.password)
+                            password=self.password,
+                            trawler=self.trawler)
                     self.items[key].gather_metrics()
                     logger.info("DataPowers in list: {}".format(len(self.items)))
         except client.rest.ApiException as e:
@@ -78,15 +79,16 @@ class DataPower(object):
     v5c = False
     statistics_enabled = False
     ip = '127.0.0.1'
-    gauges = {}
+    trawler = None
 
-    def __init__(self, ip, port, name, username, password):
+    def __init__(self, ip, port, name, username, password, trawler):
         self.ip = ip
         self.port = port
         self.name = name
         self.username = username
         self.password = password
         self.get_info()
+        self.trawler = trawler
         self.enable_statistics()
         logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
 
@@ -145,32 +147,20 @@ class DataPower(object):
 
     def gather_metrics(self):
         try:
-            self.fetch_data('TCPSummary', 'datapower_tcp', '_total')
-            self.fetch_data('LogTargetStatus', 'datapower_logtarget')
+            self.fetch_data('TCPSummary', 'tcp', '_total')
+            self.fetch_data('LogTargetStatus', 'logtarget')
             self.object_counts()
             if self.v5c:
-                self.fetch_data('WSMAgentStatus', 'datapower_wsm')
+                self.fetch_data('WSMAgentStatus', 'wsm')
             # Needs statistics enabled:
             if self.statistics_enabled:
-                self.fetch_data('HTTPTransactions2', 'datapower_http')
+                self.fetch_data('HTTPTransactions2', 'http')
         except requests.exceptions.ConnectTimeout:
             logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ReadTimeout:
             logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ConnectionError:
             logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
-
-    def set_gauge(self, target_name, value):
-        if type(value) is float or type(value) is int:
-            target_name = target_name.replace('-', '_')
-            if target_name not in self.gauges:
-                logger.info("Creating gauge {}".format(target_name))
-                self.gauges[target_name] = Gauge(
-                    target_name,
-                    target_name, ['pod'])
-            logger.debug("Setting gauge {} to {}".format(
-                self.gauges[target_name]._name, value))
-            self.gauges[target_name].labels(self.name).set(value)
 
     def fetch_data(self, provider, label, suffix=''):
         logger.debug("Processing status provider {}".format(provider))
@@ -191,13 +181,15 @@ class DataPower(object):
                     del(item[provider.replace('Status', '')])
                     logger.debug(item)
                     for key in item:
-                        self.set_gauge("{}_{}_{}{}".format(label, name, key, suffix), item[key])
+                        self.trawler.set_gauge('datapower',
+                                               "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
+                                               pod_name=self.name)
                 except KeyError:
                     logger.warning('Failed to parse response for {}'.format(provider))
                     logger.info(item)
         else:
             for key in data:
-                self.set_gauge("{}_{}{}".format(label, key, suffix), data[key])
+                self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name)
 
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
     def object_counts(self):
@@ -218,7 +210,7 @@ class DataPower(object):
             else:
                 counts[item['Class']] = 1
         for item_class in counts:
-            self.set_gauge("datapower_{}_total".format(item_class), counts[item_class])
+            self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name)
 
         logger.debug(counts)
 
