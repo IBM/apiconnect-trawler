@@ -4,6 +4,7 @@ from kubernetes import client, config
 import urllib3
 import base64
 import requests
+import json
 
 urllib3.disable_warnings()
 logger = logging.getLogger(__name__)
@@ -82,6 +83,24 @@ class AnalyticsNet(object):
             logger.error('Error calling kubernetes API')
             logger.exception(e)
 
+    def buildQuery(self):
+        return """{
+            "size": 0,
+            "query": {
+              "range": {"datetime": {
+                  "gte": "now-1h",
+                  "lt": "now"
+              }}
+            },
+            "aggs": {"status_codes": {"filters": {"filters": {
+                    "1xx": {"regexp": {"status_code": "1.*"}},
+                    "2xx": {"regexp": {"status_code": "2.*"}},
+                    "3xx": {"regexp": {"status_code": "3.*"}},
+                    "4xx": {"regexp": {"status_code": "4.*"}},
+                    "5xx": {"regexp": {"status_code": "5.*"}}
+            }}}}
+            }"""
+
     def fish(self):
         if self.hostname:
             r = requests.get('https://{}/_cluster/health'.format(self.hostname), verify=False,
@@ -104,6 +123,16 @@ class AnalyticsNet(object):
             self.trawler.set_gauge('analytics', 'unassigned_shards_total', health_obj['unassigned_shards'])
             self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
             self.trawler.set_gauge('analytics', 'pending_tasks_total', health_obj['number_of_pending_tasks'])
+
+            calls_req = requests.get('https://{}/apic-api-r/_search'.format(self.hostname), verify=False,
+                             cert=self.certificates.name, data=self.buildQuery())
+
+            summary = calls_req.json()
+            self.trawler.set_gauge('analytics', 'apicalls_lasthour.total', summary['hits']['total'])
+            for status in summary['aggregations']['status_codes']['buckets']:
+                doc_count = summary['aggregations']['status_codes']['buckets'][status]['doc_count']
+                self.trawler.set_gauge('analytics', 'apicalls_lasthour.{}'.format(status), doc_count)
+
 
 
 if __name__ == "__main__":

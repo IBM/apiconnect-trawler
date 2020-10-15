@@ -83,6 +83,8 @@ class Trawler(object):
             exit(2)
 
     def set_gauge(self, component, target_name, value, pod_name=None):
+        logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug(type(value))
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if self.config['prometheus']['enabled']:

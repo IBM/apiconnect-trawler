@@ -57,6 +57,7 @@ class ManagerNet(object):
                              "A metric with a constant '1' value labeled with API Connect version details",
                              ["version", "juhu_release"])
         self.hostname = self.find_hostname()
+        logger.debug("Hostname found is {}".format(self.hostname))
         self.trawler = trawler
 
     def load_credentials_from_secret(self, secret_name, namespace):
@@ -79,11 +80,12 @@ class ManagerNet(object):
     def find_hostname(self):
         try:
             if self.use_kubeconfig:
+                logger.info("Using KUBECONFIG")
                 config.load_kube_config()
                 v1beta = client.ExtensionsV1beta1Api()
-                ingresslist = v1beta.list_namespaced_ingress(namespace='apic-management')
+                ingresslist = v1beta.list_namespaced_ingress(namespace=self.namespace)
                 for ing in ingresslist.items:
-                    if ing.metadata.name.endswith('apiconnect-api'):
+                    if ing.metadata.name.endswith('apiconnect-api') or ing.metadata.name.endswith('platform-api'):
                         logger.info("Identified ingress host: {}".format(ing.spec.rules[0].host))
                         return ing.spec.rules[0].host
             else:
@@ -135,15 +137,18 @@ class ManagerNet(object):
                 )
                 if response.status_code == 200:
                     self.data = response.json()
+                    logging.debug(self.data)
                     self.data_time = int(time.time())
                     logger.info("Caching data - time = {}".format(self.data_time))
             else:
                 logging.info("Using cached data")
+                logging.debug(self.data)
         else:
             logging.warning("No token")
         if 'counts' in self.data:
             for object_type in self.data['counts']:
-                self.trawler.set_gauge('manager', None, object_type, self.data['counts'][object_type])
+                logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
+                self.trawler.set_gauge('manager', object_type, self.data['counts'][object_type])
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
