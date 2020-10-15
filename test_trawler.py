@@ -69,7 +69,6 @@ def test_datapower_fishing_error(mocker, caplog):
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_pod.called
     assert 'Error calling kubernetes API' in caplog.text
-    assert 'kubernetes.client.rest.ApiException' in caplog.text
 
 
 def test_datapower_instance(mocker, caplog):
