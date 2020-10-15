@@ -49,7 +49,7 @@ class Trawler(object):
             logger.info('Starting prometheus http port at http://0.0.0.0:{}'.format(port))
             start_http_server(port)
         if self.config['graphite']['enabled']:
-            self.graphite = hemApp.drivers.metrics_graphite.instance(self.config['graphite'])
+            self.graphite = metrics_graphite.instance(self.config['graphite'])
 
         use_kubeconfig = False
         if 'trawler' in self.config:
@@ -83,6 +83,8 @@ class Trawler(object):
             exit(2)
 
     def set_gauge(self, component, target_name, value, pod_name=None):
+        logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug(type(value))
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if self.config['prometheus']['enabled']:
