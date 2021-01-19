@@ -1,4 +1,4 @@
-FROM alpine:3.9
+FROM alpine:3.12
 RUN apk update && apk add python3 py3-pip
 COPY requirements.txt /tmp
 RUN pip3 install -r /tmp/requirements.txt
