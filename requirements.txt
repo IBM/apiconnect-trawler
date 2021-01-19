@@ -1,4 +1,5 @@
 requests
+rsa>=4.7
 kubernetes
 click
 PyYAML
@@ -9,4 +10,3 @@ pytest>=3.6
 pytest-cov
 pytest-mock
 requests-mock
-hemApp

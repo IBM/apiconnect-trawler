@@ -31,7 +31,6 @@ spec:
           optional: true
       hostNetwork: false
       dnsPolicy: ClusterFirstWithHostNet
-      hostPID: true
       serviceAccount: trawler
       tolerations:
         - effect: NoSchedule
@@ -43,6 +42,8 @@ spec:
         imagePullPolicy: Always
         securityContext:
           privileged: false
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
         ports:
         - containerPort: 63512 
           name: metrics

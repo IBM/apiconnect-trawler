@@ -1,4 +1,5 @@
 import trawler
+import logging
 import pytest
 import datapower_net
 import manager_net
@@ -16,6 +17,8 @@ boaty.secret_path = 'test-assets'
 boaty.use_kubeconfig = False
 
 
+
+
 def test_check_nosettings():
     runner = CliRunner()
     result = runner.invoke(trawler.cli, ["--config", "/non/existent"])
@@ -30,6 +33,7 @@ def test_check_config_load():
 
 
 def test_trawl(caplog, mocker):
+    caplog.set_level(logging.INFO)
     boaty.config['nets'] = {}
     mocker.patch('time.sleep', side_effect=KeyboardInterrupt())
     with pytest.raises(KeyboardInterrupt):
@@ -62,6 +66,7 @@ def test_datapower_fishing(mocker):
 
 
 def test_datapower_fishing_error(mocker, caplog):
+    caplog.set_level(logging.INFO)
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod', side_effect=kubernetes.client.rest.ApiException)
     new_net = datapower_net.DataPowerNet({}, boaty)
@@ -72,6 +77,7 @@ def test_datapower_fishing_error(mocker, caplog):
 
 
 def test_datapower_instance(mocker, caplog):
+    caplog.set_level(logging.INFO)
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
         v5c = '{"APIConnectGatewayService":{"V5CompatibilityMode":"on"}}'
@@ -108,6 +114,7 @@ def test_datapower_instance(mocker, caplog):
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
+    caplog.set_level(logging.INFO)
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
               exc=requests.exceptions.ReadTimeout())
@@ -122,6 +129,7 @@ def test_datapower_instance_readtimeout(caplog, mocker):
 
 
 def test_datapower_instance_connecttimeout(caplog, mocker):
+    caplog.set_level(logging.INFO)
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
               exc=requests.exceptions.ReadTimeout())
@@ -136,6 +144,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
 
 
 def test_manager_fishing_error(mocker, caplog):
+    caplog.set_level(logging.INFO)
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service', side_effect=kubernetes.client.rest.ApiException)
     new_net = manager_net.ManagerNet({}, boaty)
