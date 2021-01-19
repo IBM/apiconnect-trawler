@@ -1,4 +1,5 @@
 requests
+rsa>=4.7
 kubernetes
 click
 PyYAML
