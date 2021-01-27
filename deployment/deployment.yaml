@@ -43,7 +43,7 @@ spec:
         securityContext:
           privileged: false
           runAsNonRoot: true
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
         ports:
         - containerPort: 63512 
           name: metrics
