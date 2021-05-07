@@ -42,7 +42,7 @@ class CertsNet(object):
             config.load_incluster_config()
         # Initialise the k8s API
         v1 = client.CoreV1Api()
-        # Retreive pod list for namespace
+        # Retreive secret list for specified namespace
         ret = v1.list_namespaced_secret(namespace=self.namespace)
         for secret in ret.items:
             if secret.type == 'kubernetes.io/tls' and secret.data['ca.crt'] != '':
