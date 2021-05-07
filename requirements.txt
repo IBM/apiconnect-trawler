@@ -5,6 +5,7 @@ click
 PyYAML
 graphitesend
 prometheus_client
+pyopenssl
 setuptools
 pytest>=3.6
 pytest-cov

@@ -1,6 +1,7 @@
 import trawler
 import logging
 import pytest
+import certs_net
 import datapower_net
 import manager_net
 import analytics_net
@@ -153,6 +154,13 @@ def test_manager_fishing_error(mocker, caplog):
     assert client.CoreV1Api.list_namespaced_service.called
     assert 'Error calling kubernetes API' in caplog.text
 
+def test_cert_fishing(mocker):
+    mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_secret')
+    new_net = cert_net.CertNet({}, boaty)
+    new_net.fish()
+    assert config.load_incluster_config.called
+    assert client.CoreV1Api.list_namespaced_secret.called
 
 def test_analytics_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
