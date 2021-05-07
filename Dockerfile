@@ -28,4 +28,4 @@ RUN adduser -D trawler -u 1000
 RUN chown -R trawler:users /app
 USER 1000
 WORKDIR "/app"
-CMD /app/trawler.py --config /app/config/config.yaml
+CMD python3 /app/trawler.py --config /app/config/config.yaml
