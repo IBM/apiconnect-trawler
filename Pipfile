@@ -5,7 +5,6 @@ name = "pypi"
 
 [packages]
 requests = "*"
-cryptography = "==3.2"
 rsa = ">=4.7"
 kubernetes = "*"
 click = "*"
@@ -17,6 +16,7 @@ pytest-mock = "*"
 requests-mock = "*"
 PyYAML = "*"
 pyOpenSSL = "*"
+cryptography = "<=3.2"
 
 [dev-packages]
 pre-commit = "*"
