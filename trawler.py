@@ -6,6 +6,7 @@ import logging
 import logging.config
 import yaml
 import click
+from certs_net import CertsNet
 from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
@@ -117,6 +118,8 @@ class Trawler(object):
         # Initialise
         logger.info("Laying nets...")
         nets = []
+        if 'certs' in self.config['nets'] and self.config['nets']['certs'].get('enabled', True):
+            nets.append(CertsNet(self.config['nets']['certs'], self))
         if 'datapower' in self.config['nets'] and self.config['nets']['datapower'].get('enabled', True):
             nets.append(DataPowerNet(self.config['nets']['datapower'], self))
         if 'manager' in self.config['nets'] and self.config['nets']['manager'].get('enabled', True):

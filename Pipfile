@@ -1,0 +1,33 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+requests = "*"
+rsa = ">=4.7"
+kubernetes = "*"
+click = "*"
+graphitesend = "*"
+prometheus-client = "*"
+pytest = ">=3.6"
+pytest-cov = "*"
+pytest-mock = "*"
+requests-mock = "*"
+PyYAML = "*"
+pyOpenSSL = "*"
+cryptography = "<=3.2"
+
+[dev-packages]
+pre-commit = "*"
+flake8 = "*"
+setuptools = "*"
+pytest = ">=3.6"
+pytest-cov = "*"
+pytest-mock = "*"
+requests-mock = "*"
+python-coveralls = "*"
+pytest-catchlog = "*"
+
+[requires]
+python_version = "3.9"
