@@ -6,7 +6,7 @@ import logging
 import logging.config
 import yaml
 import click
-from cert_net import CertNet
+from certs_net import CertsNet
 from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
