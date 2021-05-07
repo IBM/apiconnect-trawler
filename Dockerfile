@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS build
+FROM alpine:latest AS build
 workdir /app
 RUN apk update && apk add python3 python3-dev py3-pip libffi libffi-dev musl-dev gcc  openssl-dev cargo
 # Install Pipenv
@@ -12,7 +12,7 @@ COPY Pipfile Pipfile.lock /app/
 RUN pipenv install --deploy
 
 # Create distribution container
-FROM alpine:3.12
+FROM alpine:latest
 WORKDIR /app
 # Install Python and external runtime dependencies only
 RUN apk add --no-cache python3 libffi
