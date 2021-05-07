@@ -157,7 +157,7 @@ def test_manager_fishing_error(mocker, caplog):
 def test_cert_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_secret')
-    new_net = cert_net.CertNet({}, boaty)
+    new_net = certs_net.CertsNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_secret.called
