@@ -23,6 +23,7 @@ class CertsNet(object):
         # Takes in config object and trawler instance it's behind
         # Use kubeconfig or in-cluster config for k8s comms
         if trawler:
+            self.trawler = trawler
             self.use_kubeconfig = trawler.use_kubeconfig
         # Namespace to review
         self.namespace = config.get('namespace', 'default')
@@ -48,11 +49,8 @@ class CertsNet(object):
             if secret.type == 'kubernetes.io/tls' and secret.data['ca.crt'] != '':
                 caSecondsLeft = self.getExpiry(secret.data['ca.crt'])
                 tlsSecondsLeft = self.getExpiry(secret.data['tls.crt']) 
-                if self.trawler:
-                    self.trawler.set_gauge('cert', '{}_tls_seconds_remaining'.format(secret.metadata.name), tlsSecondsLeft)
-                    self.trawler.set_gauge('cert', '{}_ca_seconds_remaining'.format(secret.metadata.name), caSecondsLeft)
-                else:
-                    print("{:40} {:20} {:20}".format(secret.metadata.name, caSecondsLeft, tlsSecondsLeft))
+                self.trawler.set_gauge('cert', '{}_tls_seconds_remaining'.format(secret.metadata.name), tlsSecondsLeft)
+                self.trawler.set_gauge('cert', '{}_ca_seconds_remaining'.format(secret.metadata.name), caSecondsLeft)
 
       
 if __name__ == "__main__":
