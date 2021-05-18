@@ -46,7 +46,7 @@ class CertsNet(object):
         # Retreive secret list for specified namespace
         ret = v1.list_namespaced_secret(namespace=self.namespace)
         for secret in ret.items:
-            if secret.type == 'kubernetes.io/tls' and secret.data['ca.crt'] != '':
+            if secret.type == 'kubernetes.io/tls' and 'ca.crt' in secret.data and secret.data['ca.crt'] != '':
                 caSecondsLeft = self.getExpiry(secret.data['ca.crt'])
                 tlsSecondsLeft = self.getExpiry(secret.data['tls.crt']) 
                 self.trawler.set_gauge('cert', '{}_tls_seconds_remaining'.format(secret.metadata.name), tlsSecondsLeft)
