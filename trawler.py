@@ -87,6 +87,7 @@ class Trawler(object):
         if pod_name:
             labels['pod'] = pod_name
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug(labels)
         logger.debug(type(value))
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
