@@ -49,8 +49,14 @@ class CertsNet(object):
             if secret.type == 'kubernetes.io/tls' and 'ca.crt' in secret.data and secret.data['ca.crt'] != '':
                 caSecondsLeft = self.getExpiry(secret.data['ca.crt'])
                 tlsSecondsLeft = self.getExpiry(secret.data['tls.crt']) 
-                self.trawler.set_gauge('cert', '{}_tls_seconds_remaining'.format(secret.metadata.name), tlsSecondsLeft)
-                self.trawler.set_gauge('cert', '{}_ca_seconds_remaining'.format(secret.metadata.name), caSecondsLeft)
+                self.trawler.set_gauge(
+                    'cert', '_remaining_seconds', 
+                    tlsSecondsLeft, 
+                    labels={'secret':secret.metadata.name, 'cert':'tls.crt'})
+                self.trawler.set_gauge(
+                    'cert', '_remaining_seconds', 
+                    tlsSecondsLeft, 
+                    labels={'secret':secret.metadata.name, 'cert':'ca.crt'})
 
       
 if __name__ == "__main__":
