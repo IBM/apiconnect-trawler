@@ -50,11 +50,11 @@ class CertsNet(object):
                 caSecondsLeft = self.getExpiry(secret.data['ca.crt'])
                 tlsSecondsLeft = self.getExpiry(secret.data['tls.crt']) 
                 self.trawler.set_gauge(
-                    'cert', '_remaining_seconds', 
+                    'cert', 'remaining_seconds', 
                     tlsSecondsLeft, 
                     labels={'secret':secret.metadata.name, 'cert':'tls.crt'})
                 self.trawler.set_gauge(
-                    'cert', '_remaining_seconds', 
+                    'cert', 'remaining_seconds', 
                     caSecondsLeft, 
                     labels={'secret':secret.metadata.name, 'cert':'ca.crt'})
 
