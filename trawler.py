@@ -83,8 +83,11 @@ class Trawler(object):
             logger.exception(e)
             exit(2)
 
-    def set_gauge(self, component, target_name, value, pod_name=None):
+    def set_gauge(self, component, target_name, value, pod_name=None, labels={}):
+        if pod_name:
+            labels['pod'] = pod_name
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug(labels)
         logger.debug(type(value))
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
@@ -92,10 +95,10 @@ class Trawler(object):
                 prometheus_target = "{}_{}".format(component, target_name.replace('.', '_'))
                 if prometheus_target not in self.gauges:
                     logger.info("Creating gauge {}".format(prometheus_target))
-                    if pod_name:
+                    if labels:
                         self.gauges[prometheus_target] = Gauge(
                             prometheus_target,
-                            prometheus_target, ['pod'])
+                            prometheus_target, labels.keys())
                     else:
                         self.gauges[prometheus_target] = Gauge(
                             prometheus_target,
@@ -103,8 +106,8 @@ class Trawler(object):
 
                 logger.debug("Setting gauge {} to {}".format(
                     self.gauges[prometheus_target]._name, value))
-                if pod_name:
-                    self.gauges[prometheus_target].labels(pod_name).set(value)
+                if labels:
+                    self.gauges[prometheus_target].labels(**labels).set(value)
                 else:
                     self.gauges[prometheus_target].set(value)
             if self.config['graphite']['enabled']:

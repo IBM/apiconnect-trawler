@@ -56,6 +56,12 @@ def test_missing_secret():
     content = boaty.read_secret('missingsecret')
     assert content is None
 
+def test_trawler_gauge(mocker, caplog):
+    caplog.set_level(logging.INFO)
+    boaty.set_gauge('component', 'target_name', 23, 'pod_name')
+    assert 'Creating gauge ' in caplog.text
+    # Lookup values from prometheus client
+    assert REGISTRY.get_sample_value('component_target_name', labels={"pod": "pod_name"}) == 23
 
 def test_datapower_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
