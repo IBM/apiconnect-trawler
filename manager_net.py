@@ -104,7 +104,7 @@ class ManagerNet(object):
                         self.version.labels(
                             service.metadata.annotations.get('productVersion', 'unknown'),
                             service.metadata.annotations.get('release', 'unknown')).set(1)
-                        hostname = "{}.{}.svc:{}".format(service.metadata.name, self.namespace, port)
+                        hostname = "{}.{}.svc.cluster.local:{}".format(service.metadata.name, self.namespace, port)
                         logger.info("Identified service host: {}".format(hostname))
                         return hostname
         except client.rest.ApiException as e:
