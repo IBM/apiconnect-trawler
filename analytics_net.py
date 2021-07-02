@@ -59,7 +59,7 @@ class AnalyticsNet(object):
                                 port = 9200  # default
                                 if port_object.port:
                                     port = port_object.port
-                                self.hostname = "{}.{}.svc.cluster.local:{}".format(service.metadata.name, self.namespace, port)
+                                self.hostname = "{}.{}.svc.cluster.local.:{}".format(service.metadata.name, self.namespace, port)
                 if self.hostname:
                     logger.info("Identified service host: {}".format(self.hostname))
             # Get certificates to communicate with analytics
