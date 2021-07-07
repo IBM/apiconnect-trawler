@@ -111,6 +111,26 @@ class ManagerNet(object):
             logger.error("Error calling kubernetes API")
             logger.exception(e)
 
+    def get_webhook_status(self):
+        logging.info("Getting data from API Manager")
+        url = "https://{}/api/cloud/webhooks".format(self.hostname)
+        response = requests.get(
+            url=url,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(self.token),
+            },
+            verify=False
+        )
+        if response.status_code == 200:
+            for result in response.json()['results']:
+              logger.info("{name}\t{state}\t{scope}".format(**result))
+              self.trawler.set_gauge(
+                'manager', 
+                'webhook_status',
+                1,
+                labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
     def fish(self):
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
@@ -149,6 +169,7 @@ class ManagerNet(object):
             for object_type in self.data['counts']:
                 logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
                 self.trawler.set_gauge('manager', object_type, self.data['counts'][object_type])
+        self.get_webhook_status()
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
