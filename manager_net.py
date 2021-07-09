@@ -206,9 +206,7 @@ class ManagerNet(object):
                             labels = {
                                 'org_name': org_name,
                                 'catalog_name': catalog_name,
-                                'gateway_service': gw['name'],
-                                'service_state': gw['gateway_processing_status'].get("service_state", 'unknown'),
-                                'service_up_to_date': gw['gateway_processing_status'].get("service_up_to_date", 'unknown')
+                                'gateway_service': gw['name']
                             }
                             self.trawler.set_gauge(
                                 'manager', 
