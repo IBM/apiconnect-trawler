@@ -201,26 +201,27 @@ class ManagerNet(object):
                     data = response.json()
                     logger.debug(data)
                     for gw in data['results']:
-                        logger.info(gw)
-                        labels = {
-                            'org_name': org_name,
-                            'catalog_name': catalog_name,
-                            'gateway_service': gw['name'],
-                            'service_state': gw['gateway_processing_status'].get("service_state", 'unknown'),
-                            'service_up_to_date': gw['gateway_processing_status'].get("service_up_to_date", 'unknown')
-                        }
-                        self.trawler.set_gauge(
-                            'manager', 
-                            'gateway_processing_outstanding_sent_events', 
-                            gw['gateway_processing_status']['number_of_outstanding_sent_events'],
-                            labels=labels
-                            )
-                        self.trawler.set_gauge(
-                            'manager', 
-                            'gateway_processing_outstanding_queued_events', 
-                            gw['gateway_processing_status']['number_of_outstanding_queued_events'],
-                            labels=labels
-                            )
+                        if gw["gateway_service_type"] == "datapower-api-gateway":
+                            logger.debug(gw)
+                            labels = {
+                                'org_name': org_name,
+                                'catalog_name': catalog_name,
+                                'gateway_service': gw['name'],
+                                'service_state': gw['gateway_processing_status'].get("service_state", 'unknown'),
+                                'service_up_to_date': gw['gateway_processing_status'].get("service_up_to_date", 'unknown')
+                            }
+                            self.trawler.set_gauge(
+                                'manager', 
+                                'gateway_processing_outstanding_sent_events', 
+                                gw['gateway_processing_status']['number_of_outstanding_sent_events'],
+                                labels=labels
+                                )
+                            self.trawler.set_gauge(
+                                'manager', 
+                                'gateway_processing_outstanding_queued_events', 
+                                gw['gateway_processing_status']['number_of_outstanding_queued_events'],
+                                labels=labels
+                                )
                 else:
                     logger.error(response.text)
 
