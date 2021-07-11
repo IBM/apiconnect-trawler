@@ -12,6 +12,14 @@ To install trawler, you can make use of the sample yaml files within the [deploy
      - Uncomment servicemonitor.yaml and service.yaml if you are using the prometheus operator model.
  - Set secrets for password values either through base64 encoded values in secret.yaml or through your usual method for managing secrets.
 
+## API Manager credentials
+
+For the manager_net you will need to provide trawler credentials to make the API Calls - these can either be client_credentials grants or traditional username/password. For this you will need the following permissions:
+
+ - cloud:view
+ - org:view
+ - provider-org:view
+
 ## Prometheus discovery
 
 The example yaml files in the deployment folder are configured to annotate the trawler pod so that if you have prometheus configured to discover based on the set of prometheus.io labels it should discover and scrape metrics from trawler automatically.

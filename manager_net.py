@@ -21,6 +21,7 @@ class ManagerNet(object):
     hostname = ''
     client_id = "caa87d9a-8cd7-4686-8b6e-ee2cdc5ee267"
     client_secret = "3ecff363-7eb3-44be-9e07-6d4386c48b0b"
+    grant_type = 'password'
     token = None
     token_expires = 0
     max_frequency = 600
@@ -39,6 +40,7 @@ class ManagerNet(object):
         self.namespace = config.get('namespace', 'default')
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
+        self.grant_type = config.get('grant_type', 'password')
         if 'secret' in config:
             # If config points to a secret, then load from that
             # either in this namespace, or the specified one
@@ -68,11 +70,17 @@ class ManagerNet(object):
                 config.load_incluster_config()
             v1 = client.CoreV1Api()
             logger.info("Loading cloud manager credentials from secret {} in namespace {}".format(secret_name, namespace))
-            # Get certificates to communicate with analytics
+            # Get credentials secret
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
-            self.password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
-            self.username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
-            logger.info("Username to use is {}, password length is {}".format(self.username, len(self.password)))
+            if 'password' in secrets_response.data:
+                self.password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
+                self.username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
+                logger.info("Username to use is {}, password length is {}".format(self.username, len(self.password)))
+            if 'client_secret' in secrets_response.data:
+                self.client_secret = base64.b64decode(secrets_response.data['client_secret']).decode('utf-8')
+                self.client_id = base64.b64decode(secrets_response.data['client_id']).decode('utf-8')
+                logger.info("Client ID to use is {}, Client Secret length is {}".format(self.client_id, len(self.client_secret)))
+
         except client.rest.ApiException as e:
             logger.error('Error calling kubernetes API')
             logger.exception(e)
@@ -169,7 +177,53 @@ class ManagerNet(object):
             for object_type in self.data['counts']:
                 logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
                 self.trawler.set_gauge('manager', object_type, self.data['counts'][object_type])
+            for org in self.data['orgs']['results']:
+                if org['org_type'] != 'admin':
+                    for catalog in org['catalogs']['results']:
+                        self.process_org_metrics(org['name'], catalog['name'])
         self.get_webhook_status()
+
+
+    def process_org_metrics(self, org_name, catalog_name):
+        if self.token:
+                logging.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
+                url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
+                response = requests.get(
+                    url=url,
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer {}".format(self.token),
+                    },
+                    verify=False
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.debug(data)
+                    for gw in data['results']:
+                        if gw["gateway_service_type"] == "datapower-api-gateway":
+                            logger.debug(gw)
+                            labels = {
+                                'org_name': org_name,
+                                'catalog_name': catalog_name,
+                                'gateway_service': gw['name']
+                            }
+                            self.trawler.set_gauge(
+                                'manager', 
+                                'gateway_processing_outstanding_sent_events', 
+                                gw['gateway_processing_status']['number_of_outstanding_sent_events'],
+                                labels=labels
+                                )
+                            self.trawler.set_gauge(
+                                'manager', 
+                                'gateway_processing_outstanding_queued_events', 
+                                gw['gateway_processing_status']['number_of_outstanding_queued_events'],
+                                labels=labels
+                                )
+                else:
+                    logger.error(response.text)
+
+
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
@@ -177,12 +231,13 @@ class ManagerNet(object):
         logging.debug("Getting bearer token")
 
         headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
-        data = {'username': self.username,
-                'password': self.password,
-                'realm': 'admin/default-idp-1',
-                'client_id': self.client_id,
+        data = {'client_id': self.client_id,
                 'client_secret': self.client_secret,
-                'grant_type': 'password'}
+                'grant_type': self.grant_type}
+        if self.grant_type == 'password':
+            data['username'] = self.username
+            data['password'] = self.password
+            data['realm'] = 'admin/default-idp-1'
 
         url = "https://{}/api/token".format(host)
         response = requests.post(
@@ -199,6 +254,7 @@ class ManagerNet(object):
         else:
             logger.error("Disabled manager net as failed to get bearer token: {}".format(response.status_code))
             self.errored = True
+            
 
 if __name__ == "__main__":
     net = ManagerNet({"namespace": "apic-management"}, None)
