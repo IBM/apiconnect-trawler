@@ -139,6 +139,22 @@ class ManagerNet(object):
                 'webhook_status',
                 1,
                 labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
+
+    def get_gateways(self, availability_zone = 'availability-zone-default'):
+        logging.info("Getting data from API Manager")
+        url = "https://{}/api/orgs/admin/availability-zones/{}/gateway-services".format(self.hostname, availability_zone)
+        response = requests.get(
+            url=url,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(self.token),
+            },
+            verify=False
+        )
+        if response.status_code == 200:
+            return response.json()['results']
+
     def fish(self):
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
@@ -186,22 +202,23 @@ class ManagerNet(object):
 
     def process_org_metrics(self, org_name, catalog_name):
         if self.token:
-                logging.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
-                url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
-                response = requests.get(
-                    url=url,
-                    headers={
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer {}".format(self.token),
-                    },
-                    verify=False
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    logger.debug(data)
-                    for gw in data['results']:
-                        if gw["gateway_service_type"] == "datapower-api-gateway":
+            logging.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
+            url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
+            response = requests.get(
+                url=url,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token),
+                },
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(data)
+                for gw in data['results']:
+                    if gw["gateway_service_type"] == "datapower-api-gateway":
+                        try:
                             logger.debug(gw)
                             labels = {
                                 'org_name': org_name,
@@ -220,8 +237,10 @@ class ManagerNet(object):
                                 gw['gateway_processing_status']['number_of_outstanding_queued_events'],
                                 labels=labels
                                 )
-                else:
-                    logger.error(response.text)
+                        except KeyError as e:
+                            logger.exception(e)
+            else:
+                logger.error(response.text)
 
 
 
