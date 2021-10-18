@@ -204,22 +204,22 @@ class ManagerNet(object):
 
     def process_org_metrics(self, org_name, catalog_name):
         if self.token:
-                logger.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
-                url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
-                response = requests.get(
-                    url=url,
-                    headers={
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer {}".format(self.token),
-                    },
-                    verify=False
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    logger.debug(data)
-                    for gw in data['results']:
-                        if gw["gateway_service_type"] == "datapower-api-gateway":
+            logger.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
+            url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
+            response = requests.get(
+                url=url,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token),
+                },
+                verify=False
+            )
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(data)
+                for gw in data['results']:
+                    if gw["gateway_service_type"] == "datapower-api-gateway":
                         try:
                             logger.debug(gw)
                             labels = {
@@ -243,6 +243,8 @@ class ManagerNet(object):
                             logger.exception(e)
             else:
                 logger.error(response.text)
+        else:
+            logger.error("Not retrieving metrics as no apim token")
 
 
 
