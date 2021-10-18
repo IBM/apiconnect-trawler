@@ -24,6 +24,10 @@ trawler:
 prometheus:
   port: 63512 
   enabled: true
+logging: 
+  level: debug
+  filters: trawler:trace
+  format: pretty
 nets:
   datapower:
     enabled: true
@@ -37,7 +41,7 @@ nets:
 **General trawler settings:**
  - frequency: number of seconds to wait between trawling for metrics
  - use_kubeconfig: use the current kubeconfig from the environment instead looking at _in cluster_ config
-
+ - logging: set the default logging level, output format and filters for specific components 
 **Prometheus settings:**
 The port specified in the prometheus block needs to match the prometheus annotations on the deployed trawler pod for prometheus to discover the metrics exposed.  
 

@@ -1,3 +1,4 @@
+import alog
 import logging
 import tempfile
 from kubernetes import client, config
@@ -7,7 +8,7 @@ import requests
 import json
 
 urllib3.disable_warnings()
-logger = logging.getLogger(__name__)
+logger = alog.use_channel("analytics")
 
 
 class AnalyticsNet(object):
@@ -33,7 +34,7 @@ class AnalyticsNet(object):
         self.max_frequency = int(config.get('frequency', 600))
         self.trawler = trawler
         if self.use_kubeconfig:
-            logger.error("Analytics metrics currently only available in cluster setting localhost:9200 for testing")
+            logger.error("<AA123>", "Analytics metrics currently only available in cluster setting localhost:9200 for testing")
             self.hostname = 'localhost:9200'
             self.find_hostname_and_certs()
         else:
@@ -101,37 +102,47 @@ class AnalyticsNet(object):
             }}}}
             }"""
 
+    @alog.timed_function(logger.trace)
     def fish(self):
+        errored = False
         if self.hostname:
-            r = requests.get('https://{}/_cluster/health'.format(self.hostname), verify=False,
+            try:
+              r = requests.get('https://{}/_cluster/health'.format(self.hostname), verify=False,
                              cert=self.certificates.name)
+            
+              health_obj = r.json()
+              logger.debug(r.text)
+            except requests.exceptions.ConnectionError as e:
+              logger.error("Connection error on attempt to get cluster health from 'https://{}/_cluster/health'".format(self.hostname))
+              errored = True
+              health_obj = {}
 
-            health_obj = r.json()
-            logger.debug(r.text)
             try:
               cluster_status = self.status_map[health_obj['status']]
             except KeyError:
               cluster_status = -1
 
             self.trawler.set_gauge('analytics', 'cluster_status', cluster_status)
-            self.trawler.set_gauge('analytics', 'data_nodes_total', health_obj['number_of_data_nodes'])
-            self.trawler.set_gauge('analytics', 'nodes_total', health_obj['number_of_nodes'])
-            self.trawler.set_gauge('analytics', 'active_primary_shards_total', health_obj['active_primary_shards'])
-            self.trawler.set_gauge('analytics', 'active_shards_total', health_obj['active_shards'])
-            self.trawler.set_gauge('analytics', 'relocating_shards_total', health_obj['relocating_shards'])
-            self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
-            self.trawler.set_gauge('analytics', 'unassigned_shards_total', health_obj['unassigned_shards'])
-            self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
-            self.trawler.set_gauge('analytics', 'pending_tasks_total', health_obj['number_of_pending_tasks'])
-
-            calls_req = requests.get('https://{}/apic-api-r/_search'.format(self.hostname), verify=False,
+            if not errored:
+              self.trawler.set_gauge('analytics', 'data_nodes_total', health_obj.get['number_of_data_nodes'])
+              self.trawler.set_gauge('analytics', 'nodes_total', health_obj['number_of_nodes'])
+              self.trawler.set_gauge('analytics', 'active_primary_shards_total', health_obj['active_primary_shards'])
+              self.trawler.set_gauge('analytics', 'active_shards_total', health_obj['active_shards'])
+              self.trawler.set_gauge('analytics', 'relocating_shards_total', health_obj['relocating_shards'])
+              self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
+              self.trawler.set_gauge('analytics', 'unassigned_shards_total', health_obj['unassigned_shards'])
+              self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
+              self.trawler.set_gauge('analytics', 'pending_tasks_total', health_obj['number_of_pending_tasks'])
+              calls_req = requests.get('https://{}/apic-api-r/_search'.format(self.hostname), verify=False,
                              cert=self.certificates.name, data=self.buildQuery())
 
-            summary = calls_req.json()
-            self.trawler.set_gauge('analytics', 'apicalls_lasthour.total', summary['hits']['total'])
-            for status in summary['aggregations']['status_codes']['buckets']:
-                doc_count = summary['aggregations']['status_codes']['buckets'][status]['doc_count']
-                self.trawler.set_gauge('analytics', 'apicalls_lasthour.{}'.format(status), doc_count)
+              summary = calls_req.json()
+              self.trawler.set_gauge('analytics', 'apicalls_lasthour.total', summary['hits']['total'])
+              for status in summary['aggregations']['status_codes']['buckets']:
+                  doc_count = summary['aggregations']['status_codes']['buckets'][status]['doc_count']
+                  self.trawler.set_gauge('analytics', 'apicalls_lasthour.{}'.format(status), doc_count)
+            else:
+              logger.info("Cluster health failed, so no data and no point querying for calls")
 
 
 

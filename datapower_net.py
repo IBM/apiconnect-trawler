@@ -1,10 +1,11 @@
 import requests
+import alog
 import logging
 from kubernetes import client, config
 import urllib3
 
 urllib3.disable_warnings()
-logger = logging.getLogger(__name__)
+logger = alog.use_channel("datapower")
 
 # /mgmt/status/apiconnect/TCPSummary
 
@@ -31,6 +32,7 @@ class DataPowerNet(object):
             # Use out of box default password
             self.password = 'admin'
 
+    @alog.timed_function(logger.trace)
     def fish(self):
         # Go fishing for datapowers
         # Load appropriate k8s config

@@ -3,13 +3,14 @@ import json
 import time
 import datetime
 import logging
+import alog
 from kubernetes import client, config
 from prometheus_client import Gauge
 import urllib3
 import base64
 
 urllib3.disable_warnings()
-logger = logging.getLogger(__name__)
+logger = alog.use_channel("management")
 
 # /mgmt/status/apiconnect/TCPSummary
 
@@ -139,6 +140,8 @@ class ManagerNet(object):
                 'webhook_status',
                 1,
                 labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
+
+    @alog.timed_function(logger.trace)
     def fish(self):
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
