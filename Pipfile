@@ -17,6 +17,7 @@ requests-mock = "*"
 PyYAML = "*"
 pyOpenSSL = "*"
 cryptography = "<3.4"
+alchemy-logging = "*"
 
 [dev-packages]
 pre-commit = "*"

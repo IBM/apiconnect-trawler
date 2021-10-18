@@ -2,6 +2,7 @@
 
 import os
 import time
+import alog
 import logging
 import logging.config
 import yaml
@@ -14,13 +15,7 @@ from prometheus_client import start_http_server
 import metrics_graphite
 from prometheus_client import Gauge
 
-
-logger = logging.getLogger('trawler')
-
-logging.basicConfig(
-    level=logging.getLevelName(logging.INFO),
-    format="%(levelname)s: %(asctime)s (%(module)s:%(lineno)d): %(message)s"
-)
+logger = alog.use_channel("trawler")
 
 
 class Trawler(object):
@@ -43,8 +38,12 @@ class Trawler(object):
         if config_file:
             self.load_config(config_file)
         if 'logging' in self.config:
-            logging.config.dictConfig(self.config['logging'])
-        self.logger = logging.getLogger(__name__)
+            alog.configure(
+              default_level=self.config['logging'].get('level', 'trace'),
+              filters=self.config['logging'].get('filters', None),
+              formatter=self.config['logging'].get('format', 'pretty')
+            )
+        self.logger = alog.use_channel("trawler")
         if self.config['prometheus']['enabled']:
             port = self.config['prometheus'].get('port')
             logger.info('Starting prometheus http port at http://0.0.0.0:{}'.format(port))
@@ -117,6 +116,7 @@ class Trawler(object):
                     metric_name = "{}.{}".format(component, target_name)
                 self.graphite.stage(metric_name, value)
 
+    @alog.timed_function(logger.trace)
     def trawl_metrics(self):
         # Initialise
         logger.info("Laying nets...")
