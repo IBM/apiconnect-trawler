@@ -84,7 +84,7 @@ class ManagerNet(object):
 
         except client.rest.ApiException as e:
             logger.error('Error calling kubernetes API')
-            logger.exception(e)
+            logger.debug(e)
 
     def find_hostname(self):
         try:
@@ -121,7 +121,7 @@ class ManagerNet(object):
             logger.exception(e)
 
     def get_webhook_status(self):
-        logging.info("Getting data from API Manager")
+        logger.info("Getting data from API Manager")
         url = "https://{}/api/cloud/webhooks".format(self.hostname)
         response = requests.get(
             url=url,
@@ -151,11 +151,11 @@ class ManagerNet(object):
         if self.token_expires - 10 < time.time():
             self.get_token(self.hostname)
         data_age = int(time.time()) - self.data_time
-        logging.info("Data is {} seconds old".format(data_age))
+        logger.info("Data is {} seconds old".format(data_age))
 
         if self.token:
             if (data_age > self.max_frequency):
-                logging.info("Getting data from API Manager")
+                logger.info("Getting data from API Manager")
                 url = "https://{}/api/cloud/topology".format(self.hostname)
                 response = requests.get(
                     url=url,
@@ -168,14 +168,14 @@ class ManagerNet(object):
                 )
                 if response.status_code == 200:
                     self.data = response.json()
-                    logging.debug(self.data)
+                    logger.debug(self.data)
                     self.data_time = int(time.time())
                     logger.info("Caching data - time = {}".format(self.data_time))
             else:
-                logging.info("Using cached data")
-                logging.debug(self.data)
+                logger.info("Using cached data")
+                logger.debug(self.data)
         else:
-            logging.warning("No token")
+            logger.warning("No token")
         if 'counts' in self.data:
             for object_type in self.data['counts']:
                 logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
@@ -189,7 +189,7 @@ class ManagerNet(object):
 
     def process_org_metrics(self, org_name, catalog_name):
         if self.token:
-                logging.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
+                logger.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
                 url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
                 response = requests.get(
                     url=url,
@@ -231,7 +231,7 @@ class ManagerNet(object):
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
     def get_token(self, host):
-        logging.debug("Getting bearer token")
+        logger.debug("Getting bearer token")
 
         headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
         data = {'client_id': self.client_id,

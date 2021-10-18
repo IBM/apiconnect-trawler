@@ -34,7 +34,7 @@ class AnalyticsNet(object):
         self.max_frequency = int(config.get('frequency', 600))
         self.trawler = trawler
         if self.use_kubeconfig:
-            logger.error("<AA123>", "Analytics metrics currently only available in cluster setting localhost:9200 for testing")
+            logger.error("Analytics metrics currently only available in cluster setting localhost:9200 for testing")
             self.hostname = 'localhost:9200'
             self.find_hostname_and_certs()
         else:

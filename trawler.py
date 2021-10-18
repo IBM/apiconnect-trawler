@@ -39,9 +39,9 @@ class Trawler(object):
             self.load_config(config_file)
         if 'logging' in self.config:
             alog.configure(
-              default_level=self.config['logging'].get('level', 'trace'),
+              default_level=self.config['logging'].get('level', 'info'),
               filters=self.config['logging'].get('filters', None),
-              formatter=self.config['logging'].get('format', 'pretty')
+              formatter=self.config['logging'].get('format', 'json')
             )
         self.logger = alog.use_channel("trawler")
         if self.config['prometheus']['enabled']:
