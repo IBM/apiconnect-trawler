@@ -141,6 +141,21 @@ class ManagerNet(object):
                 1,
                 labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
 
+    def get_gateways(self, availability_zone = 'availability-zone-default'):
+        logging.info("Getting data from API Manager")
+        url = "https://{}/api/orgs/admin/availability-zones/{}/gateway-services".format(self.hostname, availability_zone)
+        response = requests.get(
+            url=url,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer {}".format(self.token),
+            },
+            verify=False
+        )
+        if response.status_code == 200:
+            return response.json()['results']
+
     @alog.timed_function(logger.trace)
     def fish(self):
         if self.errored:
@@ -205,6 +220,7 @@ class ManagerNet(object):
                     logger.debug(data)
                     for gw in data['results']:
                         if gw["gateway_service_type"] == "datapower-api-gateway":
+                        try:
                             logger.debug(gw)
                             labels = {
                                 'org_name': org_name,
@@ -223,8 +239,10 @@ class ManagerNet(object):
                                 gw['gateway_processing_status']['number_of_outstanding_queued_events'],
                                 labels=labels
                                 )
-                else:
-                    logger.error(response.text)
+                        except KeyError as e:
+                            logger.exception(e)
+            else:
+                logger.error(response.text)
 
 
 
