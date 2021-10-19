@@ -124,7 +124,7 @@ class AnalyticsNet(object):
 
             self.trawler.set_gauge('analytics', 'cluster_status', cluster_status)
             if not errored:
-              self.trawler.set_gauge('analytics', 'data_nodes_total', health_obj.get['number_of_data_nodes'])
+              self.trawler.set_gauge('analytics', 'data_nodes_total', health_obj['number_of_data_nodes'])
               self.trawler.set_gauge('analytics', 'nodes_total', health_obj['number_of_nodes'])
               self.trawler.set_gauge('analytics', 'active_primary_shards_total', health_obj['active_primary_shards'])
               self.trawler.set_gauge('analytics', 'active_shards_total', health_obj['active_shards'])
