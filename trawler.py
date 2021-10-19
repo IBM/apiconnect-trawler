@@ -43,6 +43,8 @@ class Trawler(object):
               filters=self.config['logging'].get('filters', None),
               formatter=self.config['logging'].get('format', 'json')
             )
+        else:
+            alog.configure(default_level='info', formatter='json')
         self.logger = alog.use_channel("trawler")
         if self.config['prometheus']['enabled']:
             port = self.config['prometheus'].get('port')
