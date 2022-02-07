@@ -7,5 +7,5 @@ RUN python3 -m pip install -r /app/requirements.txt
 COPY *.py /app/
 COPY test-assets /app/test-assets
 USER 1000
-EXPOSE 8080
+ENV APP_FILE=/app/trawler.py
 CMD ["python3", "/app/trawler.py", "-c", "/app/config/config.yaml"]
