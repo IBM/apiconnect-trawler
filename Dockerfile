@@ -24,6 +24,7 @@ ENV PATH="/opt/venv/bin:$PATH" VIRTUAL_ENV="/opt/venv"
 # Copy trawler application
 COPY *.py /app/
 COPY test-assets /app/test-assets
+# Create and set user
 RUN adduser -D trawler -u 1000
 RUN chown -R trawler:users /app
 USER 1000
