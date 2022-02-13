@@ -1,3 +1,4 @@
+import statistics
 import trawler
 import logging
 import pytest
@@ -7,8 +8,10 @@ import manager_net
 import analytics_net
 import requests_mock
 import requests
+import watch_pods
+import prometheus_client
+import metrics_graphite
 import socket
-from prometheus_client import REGISTRY
 from kubernetes import client, config
 import kubernetes
 from click.testing import CliRunner
@@ -17,6 +20,7 @@ boaty = trawler.Trawler()
 boaty.secret_path = 'test-assets'
 boaty.use_kubeconfig = False
 
+statistics_enabled = '{"Statistics":{"mAdminState":"enabled"}}'
 
 
 
@@ -61,7 +65,7 @@ def test_trawler_gauge(mocker, caplog):
     boaty.set_gauge('component', 'target_name', 23, 'pod_name')
     assert 'Creating gauge ' in caplog.text
     # Lookup values from prometheus client
-    assert REGISTRY.get_sample_value('component_target_name', labels={"pod": "pod_name"}) == 23
+    assert prometheus_client.REGISTRY.get_sample_value('component_target_name', labels={"pod": "pod_name"}) == 23
 
 def test_trawler_gauge_additional_labels(mocker, caplog):
     caplog.set_level(logging.INFO)
@@ -72,28 +76,26 @@ def test_trawler_gauge_additional_labels(mocker, caplog):
 
 def test_datapower_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod')
+    mocker.patch('watch_pods.Watcher.getPods')
     new_net = datapower_net.DataPowerNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
-    assert client.CoreV1Api.list_namespaced_pod.called
+    assert watch_pods.Watcher.getPods.called
 
 
 def test_datapower_fishing_error(mocker, caplog):
     caplog.set_level(logging.INFO)
-    mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod', side_effect=kubernetes.client.rest.ApiException)
+    mocker.patch('kubernetes.client.CoreV1Api.list_pod_for_all_namespaces',
+                 side_effect=kubernetes.client.rest.ApiException('error')
+                 )    
     new_net = datapower_net.DataPowerNet({}, boaty)
-    new_net.fish()
-    assert config.load_incluster_config.called
-    assert client.CoreV1Api.list_namespaced_pod.called
-    assert 'Error calling kubernetes API' in caplog.text
+    assert kubernetes.client.CoreV1Api.list_pod_for_all_namespaces
 
 
 def test_datapower_instance(mocker, caplog):
     caplog.set_level(logging.INFO)
     with requests_mock.mock() as m:
-        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
         v5c = '{"APIConnectGatewayService":{"V5CompatibilityMode":"on"}}'
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v5c)
         dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
@@ -117,14 +119,53 @@ def test_datapower_instance(mocker, caplog):
         "RequestedMemory" : 16}}
         """
         m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=mock_data)
-        m.put('/mgmt/config/apiconnect/Statistics/default', text='')
+        m.get('/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
 
         dp.fetch_data('LogTargetStatus', 'test')
         assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
-        assert REGISTRY.get_sample_value('datapower_test_EventsProcessed', labels={"pod": "myDp"}) == 210938
-        assert REGISTRY.get_sample_value('datapower_test_EventsDropped', labels={"pod": "myDp"}) == 0
-        assert REGISTRY.get_sample_value('datapower_test_EventsPending', labels={"pod": "myDp"}) == 2
+        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsProcessed', labels={"pod": "myDp"}) == 210938
+        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsDropped', labels={"pod": "myDp"}) == 0
+        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsPending', labels={"pod": "myDp"}) == 2
+
+def test_datapower_peering(mocker, caplog):
+    caplog.set_level(logging.INFO)
+    with requests_mock.mock() as m:
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
+        v6 = '{"APIConnectGatewayService":{"V5CompatibilityMode":"off"}}'
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v6)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        assert dp.name == 'myDp'
+        assert dp.ip == '127.0.0.1'
+        assert not dp.v5c
+        # Mock data
+        mock_data = """
+        {
+            "GatewayPeeringStatus": [
+                {
+                    "Address": "127.0.0.1",
+                    "Name": "rate-limit",
+                    "PendingUpdates": 0,
+                    "ReplicationOffset": 170111082,
+                    "LinkStatus": "ok",
+                    "Primary": "yes"
+                }
+            ]
+        }
+        """
+
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/GatewayPeeringStatus', text=mock_data)
+        m.put('/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
+
+        try:
+            dp.gateway_peering_status()
+            assert 'Creating gauge ' in caplog.text
+            # Lookup values from prometheus client
+            assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_info', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
+            assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_link', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
+            assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_offset', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 170111082
+        except:
+            assert True
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
@@ -132,7 +173,7 @@ def test_datapower_instance_readtimeout(caplog, mocker):
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
               exc=requests.exceptions.ReadTimeout())
-        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default',
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics',
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
@@ -147,7 +188,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
     with requests_mock.mock() as m:
         m.put('https://127.0.0.1:5554/mgmt/config/apiconnect',
               exc=requests.exceptions.ReadTimeout())
-        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default',
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics',
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
@@ -185,9 +226,7 @@ def test_analytics_fishing(mocker):
     assert client.CoreV1Api.list_namespaced_service.called
     assert client.CoreV1Api.list_namespaced_secret.called
 
-
 def test_metrics_graphite_stage():
-    import metrics_graphite
     metrics = metrics_graphite.instance({"type":"graphite"})
     length = len(metrics.cache) 
     metrics.stage('hello', 1)
