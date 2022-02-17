@@ -16,8 +16,8 @@ pytest-mock = "*"
 requests-mock = "*"
 PyYAML = "*"
 pyOpenSSL = "*"
-cryptography = "<3.4"
-alchemy-logging = "*"
+cryptography = "*"
+alchemy-logging = ">=1.0.3"
 
 [dev-packages]
 pre-commit = "*"

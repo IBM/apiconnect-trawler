@@ -8,6 +8,7 @@ urllib3.disable_warnings()
 logger = alog.use_channel("datapower")
 
 # /mgmt/status/apiconnect/TCPSummary
+# /mgmt/status/apiconnect/GatewayPeeringStatus
 
 
 class DataPowerNet(object):
@@ -215,6 +216,43 @@ class DataPower(object):
             self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name)
 
         logger.debug(counts)
+
+
+
+# https://localhost:5554/mgmt/status/apiconnect/GatewayPeeringStatus
+#      {
+#        "Address": "172.30.131.201",
+#        "Name": "rate-limit",
+#        "PendingUpdates": 0,
+#        "ReplicationOffset": 170111082,
+#        "LinkStatus": "ok",
+#        "Primary": "yes"
+#      },
+
+    def gateway_peering_status(self):
+        logger.info("Processing status provider GatewayPeeringStatus")
+        url = "https://{}:{}/mgmt/status/{}/GatewayPeeringStatus".format(
+            self.ip,
+            self.port,
+            self.domain)
+        status = requests.get(url,
+                              auth=(self.username, self.password),
+                              verify=False, timeout=1).json()
+        logger.debug(status)
+
+        for entry in status["GatewayPeeringStatus"]:
+            if self.ip == entry["Address"]:
+                labels = {}
+                labels["peer_group"] = entry["Name"]
+                pvalue = 0
+                lvalue = 0
+                if entry["Primary"] == "yes":
+                    pvalue = 1
+                if entry["LinkStatus"] == "ok":
+                    lvalue = 1
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_info", pvalue, pod_name=self.name, labels=labels)
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_link", lvalue, pod_name=self.name, labels=labels)
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_offset", entry["ReplicationOffset"], pod_name=self.name, labels=labels)
 
 
 if __name__ == "__main__":

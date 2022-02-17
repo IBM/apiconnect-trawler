@@ -63,6 +63,13 @@ def test_trawler_gauge(mocker, caplog):
     # Lookup values from prometheus client
     assert REGISTRY.get_sample_value('component_target_name', labels={"pod": "pod_name"}) == 23
 
+def test_trawler_gauge_additional_labels(mocker, caplog):
+    caplog.set_level(logging.INFO)
+    boaty.set_gauge('labels', 'add_additional', 1, pod_name='pod_name', labels={"group": "labels"})
+    assert 'Creating gauge ' in caplog.text
+    # Lookup values from prometheus client
+    assert REGISTRY.get_sample_value('labels_add_additional', labels={"pod": "pod_name", "group": "labels"}) == 1
+
 def test_datapower_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_pod')
@@ -194,3 +201,39 @@ def test_metrics_graphite_prefix():
     assert metrics.prefix == "random"
     metrics.stage('hello', 1)
     assert "random." in metrics.cache[-1]
+
+def test_datapower_peering(mocker, caplog):
+    caplog.set_level( logging.INFO )
+    with requests_mock.mock() as m:
+        m.put('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics/default', text="")
+        v6 = '{"APIConnectGatewayService":{"V5CompatibilityMode":"off"}}'
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v6)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        assert dp.name == 'myDp'
+        assert dp.ip == '127.0.0.1'
+        assert not dp.v5c
+        # Mock data
+        mock_data = """
+        {
+            "GatewayPeeringStatus": [
+                {
+                    "Address": "127.0.0.1",
+                    "Name": "rate-limit",
+                    "PendingUpdates": 0,
+                    "ReplicationOffset": 170111082,
+                    "LinkStatus": "ok",
+                    "Primary": "yes"
+                }
+            ]
+        }
+        """
+
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/GatewayPeeringStatus', text=mock_data)
+        m.put('/mgmt/config/apiconnect/Statistics/default', text='')
+
+        dp.gateway_peering_status()
+        assert 'Creating gauge ' in caplog.text
+        # Lookup values from prometheus client
+        assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_info', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
+        assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_link', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
+        assert REGISTRY.get_sample_value('datapower_gateway_peering_primary_offset', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 170111082
