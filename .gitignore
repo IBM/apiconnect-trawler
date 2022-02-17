@@ -3,3 +3,4 @@ coverage.xml
 .pytest_cache/
 __pycache__/
 local/
+*.pyc
