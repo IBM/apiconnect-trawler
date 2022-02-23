@@ -12,7 +12,7 @@ logger = alog.use_channel("datapower")
 
 
 class DataPowerNet(object):
-    namespace = 'default'
+    namespace = None
     username = ''
     password = ''
     use_kubeconfig = False
@@ -23,7 +23,7 @@ class DataPowerNet(object):
         # Use kubeconfig or in-cluster config for k8s comms
         self.use_kubeconfig = trawler.use_kubeconfig
         # Namespace to find datapower
-        self.namespace = config.get('namespace', 'default')
+        self.namespace = config.get('namespace', None)
         # Datapower username to use for REST calls
         self.username = config.get('username', 'admin')
         # Load password from secret `datapower_password`
@@ -32,6 +32,8 @@ class DataPowerNet(object):
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
+        logger.info("Register pods to watch")
+        trawler.watcher.register('datapower', 'productName', 'DataPower Gateway')
 
     @alog.timed_function(logger.trace)
     def fish(self):
@@ -42,33 +44,25 @@ class DataPowerNet(object):
         else:
             config.load_incluster_config()
         try:
-            # Initialise the k8s API
-            v1 = client.CoreV1Api()
-            # Retreive pod list for namespace
-            ret = v1.list_namespaced_pod(namespace=self.namespace)
-            for i in ret.items:
-                if (i.status.pod_ip and i.metadata.annotations and
-                        'productName' in i.metadata.annotations and
-                        'DataPower Gateway' in i.metadata.annotations['productName']):
-                    # Use default port of 5554 if not annotated
-                    port = i.metadata.annotations.get('restPort', 5554)
-                    key = "{ip}:{port}".format(ip=i.status.pod_ip, port=port)
-                    if key in self.items:
-                        logger.debug("Seen existing DP again - just get metrics")
-                    else:
-                        if self.use_kubeconfig:
-                            ip = '127.0.0.1'
-                        else:
-                            ip = i.status.pod_ip
-                        self.items[key] = DataPower(
-                            ip=ip,
-                            port=port,
-                            name=i.metadata.name,
-                            username=self.username,
-                            password=self.password,
-                            trawler=self.trawler)
-                    self.items[key].gather_metrics()
-                    logger.info("DataPowers in list: {}".format(len(self.items)))
+            pods = self.trawler.watcher.getPods('datapower')
+            for i in pods:
+                # Use default port of 5554 if not annotated
+                port = i.metadata.annotations.get('restPort', 5554)
+                if self.use_kubeconfig:
+                    ip = '127.0.0.1'
+                else:
+                    ip = i.status.pod_ip
+                dp_key = "{}:{}".format(i.metadata.namespace, i.metadata.name)
+                if dp_key not in self.items:
+                    self.items[dp_key] = DataPower(
+                        ip=ip,
+                        port=port,
+                        name=i.metadata.name,
+                        username=self.username,
+                        password=self.password,
+                        trawler=self.trawler)
+                self.items[dp_key].gather_metrics()
+                logger.info("DataPowers in list: {}".format(len(pods)))
         except client.rest.ApiException as e:
             logger.error("Error calling kubernetes API")
             logger.exception(e)
@@ -126,21 +120,27 @@ class DataPower(object):
             # TODO - first check if statistics are already enabled via
             #  https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics
 
-            logger.info("Attempt to enable statistics")
-            url = "https://{}:{}/mgmt/config/{}/Statistics/default".format(
+            logger.info("Are statistics enabled?")
+            url = "https://{}:{}/mgmt/config/{}/Statistics".format(
                 self.ip,
                 self.port,
                 self.domain)
-            state = requests.put(url,
+            state = requests.get(url,
                                  auth=(self.username, self.password),
-                                 data='{"Statistics":{"LoadInterval":1000,"mAdminState":"enabled","name":"default"}}',
                                  verify=False,
                                  timeout=1
                                  )
+            logger.trace(state.text)
             if state.status_code == 200:
-                self.statistics_enabled = True
+                if state.json()["Statistics"]["mAdminState"] == "enabled":
+                    self.statistics_enabled = True
+                    logger.info("Statistics are enabled")
+                else:
+                    self.statistics_enabled = False
+                    logger.info("Statistics are not enabled, disabled collecting")
             else:
                 self.statistics_enabled = False
+                logger.info("Statistics are not enabled, disabled collecting")
         except requests.exceptions.ConnectTimeout:
             logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
         except requests.exceptions.ReadTimeout:

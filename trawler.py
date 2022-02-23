@@ -5,15 +5,18 @@ import time
 import alog
 import logging
 import logging.config
+import threading
 import yaml
 import click
 from certs_net import CertsNet
 from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
+from watch_pods import Watcher
 from prometheus_client import start_http_server
 import metrics_graphite
 from prometheus_client import Gauge
+
 
 logger = alog.use_channel("trawler")
 
@@ -65,6 +68,7 @@ class Trawler(object):
             # Check for KUBERNETES_SERVICE_HOST to determine if running within kubernetes
             if os.getenv('KUBERNETES_SERVICE_HOST'):
                 self.use_kubeconfig = False
+        self.watcher = Watcher(use_kubeconfig)
 
     def read_secret(self, key):
         # Helper function read secrets from mounted k8s secrets
@@ -89,7 +93,6 @@ class Trawler(object):
             labels['pod'] = pod_name
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
         logger.debug(labels)
-        logger.debug(type(value))
         if type(value) is float or type(value) is int:
             target_name = target_name.replace('-', '_')
             if self.config['prometheus']['enabled']:
@@ -131,6 +134,11 @@ class Trawler(object):
             nets.append(ManagerNet(self.config['nets']['manager'], self))
         if 'analytics' in self.config['nets'] and self.config['nets']['analytics'].get('enabled', True):
             nets.append(AnalyticsNet(self.config['nets']['analytics'], self))
+        
+        # Start thread to watch if needed (nets need to call watcher.register)
+        if self.watcher.enabled:
+            watchThread = threading.Thread(target=self.watcher.watch_pods, daemon=True)
+            watchThread.start()
 
         while True:
             logger.info("Trawling for metrics...")
@@ -139,7 +147,6 @@ class Trawler(object):
             if self.graphite:
                 self.graphite.store()
             time.sleep(self.frequency)
-
 
 @click.command()
 @click.version_option()
