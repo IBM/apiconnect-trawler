@@ -59,7 +59,7 @@ def test_watch(caplog, mocker):
     assert 'testAnnotation' in caplog.text
     assert 0 == len(watcher.getPods('test'))
     watcher.start()
-    time.sleep(3)
+    time.sleep(8)
     assert 1 == len(watcher.getPods('test'))
     assert kubernetes.client.CoreV1Api.list_pod_for_all_namespaces
 
