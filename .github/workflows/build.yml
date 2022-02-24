@@ -40,7 +40,7 @@ jobs:
       - name: Log in to the GitHub Container registry
         uses: redhat-actions/podman-login@v1
         with:
-          registry: "https://ghcr.io"
+          registry: "ghcr.io"
           username: ${{ github.actor }}
           password: ${{ secrets.CR_PAT }}
 
