@@ -14,7 +14,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: trawler
+  IMAGE_NAME: ghcr.io/ibm/apiconnect-trawler/trawler
   OWNER: rickymoorhouse
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
-          tags: latest ${{ github.sha }}
+          tags: latest
           containerfiles: |
             ./Containerfile
 
