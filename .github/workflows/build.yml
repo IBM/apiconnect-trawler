@@ -15,7 +15,6 @@ on:
 
 env:
   IMAGE_NAME: ghcr.io/ibm/apiconnect-trawler/trawler
-  OWNER: rickymoorhouse
 
 jobs:
   # Push image to GitHub Packages.
