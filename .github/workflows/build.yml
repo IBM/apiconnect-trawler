@@ -40,9 +40,9 @@ jobs:
       - name: Log in to the GitHub Container registry
         uses: redhat-actions/podman-login@v1
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: "https://ghcr.io"
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}
 
       - name: Push to GitHub Container Repository
         id: push-to-ghcr
