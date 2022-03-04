@@ -56,11 +56,11 @@ class CertsNet(object):
                 self.trawler.set_gauge(
                     'cert', 'remaining_seconds', 
                     tlsSecondsLeft, 
-                    labels={'secret':secret.metadata.name, 'cert':'tls.crt'})
+                    labels={'secret':secret.metadata.name, 'cert':'tls.crt', 'namespace': secret.metadata.namespace})
                 self.trawler.set_gauge(
                     'cert', 'remaining_seconds', 
                     caSecondsLeft, 
-                    labels={'secret':secret.metadata.name, 'cert':'ca.crt'})
+                    labels={'secret':secret.metadata.name, 'cert':'ca.crt', 'namespace': secret.metadata.namespace})
 
       
 if __name__ == "__main__":
