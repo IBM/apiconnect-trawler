@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class CertsNet(object):
-    namespace = 'default'
+    namespace = None
     use_kubeconfig = True
     trawler = None
 
@@ -26,7 +26,7 @@ class CertsNet(object):
             self.trawler = trawler
             self.use_kubeconfig = trawler.use_kubeconfig
         # Namespace to review
-        self.namespace = config.get('namespace', 'default')
+        self.namespace = config.get('namespace', None)
 
     def getExpiry(self, cert_data):
       cert = base64.b64decode(cert_data)
@@ -43,8 +43,12 @@ class CertsNet(object):
             config.load_incluster_config()
         # Initialise the k8s API
         v1 = client.CoreV1Api()
-        # Retreive secret list for specified namespace
-        ret = v1.list_namespaced_secret(namespace=self.namespace)
+        # Retreive secret list for specified namespace if specified, otherwise all namespaces
+        if self.namespace:
+            ret = v1.list_namespaced_secret(namespace=self.namespace)
+        else:
+            ret = v1.list_secret_for_all_namespaces()
+
         for secret in ret.items:
             if secret.type == 'kubernetes.io/tls' and 'ca.crt' in secret.data and secret.data['ca.crt'] != '':
                 caSecondsLeft = self.getExpiry(secret.data['ca.crt'])
