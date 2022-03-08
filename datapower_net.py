@@ -72,9 +72,6 @@ class DataPowerNet(object):
                     ip = '127.0.0.1'
                 else:
                     ip = i.status.pod_ip
-                for vol in i.spec.volumes:
-                    if vol.name.endswith("admin-credentials-volume"):
-                        print(vol.secret.secret_name)
                 dp_key = "{}:{}".format(i.metadata.namespace, i.metadata.name)
                 if dp_key not in self.items:
                     if self.password:
