@@ -1,6 +1,7 @@
 import time
 import threading
 import alog
+import os
 from kubernetes import client, config, watch
 
 logger = alog.use_channel("watch")
@@ -13,9 +14,8 @@ class Watcher(object):
   enabled = False
   use_kubeconfig = False
 
-  def __init__(self, use_kubeconfig):
+  def __init__(self):
     logger.info("Initialising watcher")
-    self.use_kubeconfig = use_kubeconfig
 
   def getPods(self, groupName):
     listpods = [] 
@@ -53,10 +53,10 @@ class Watcher(object):
   def watch_pods(self):
     logger.info("Starting watch")
     w = watch.Watch()
-    if self.use_kubeconfig:
-        config.load_kube_config()
-    else:
+    if os.getenv('KUBERNETES_SERVICE_HOST'):
         config.load_incluster_config()    
+    else:
+        config.load_kube_config()
     v1 = client.CoreV1Api()
     while True:
       try:

@@ -68,7 +68,7 @@ class Trawler(object):
             # Check for KUBERNETES_SERVICE_HOST to determine if running within kubernetes
             if os.getenv('KUBERNETES_SERVICE_HOST'):
                 self.use_kubeconfig = False
-        self.watcher = Watcher(use_kubeconfig)
+        self.watcher = Watcher()
 
     def read_secret(self, key):
         # Helper function read secrets from mounted k8s secrets
