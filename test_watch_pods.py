@@ -4,7 +4,7 @@ import time
 import watch_pods
 import kubernetes
 
-watcher = watch_pods.Watcher(True)
+watcher = watch_pods.Watcher()
 
 fake_pod = kubernetes.client.V1Pod(
         metadata=kubernetes.client.V1ObjectMeta(
@@ -48,6 +48,8 @@ def test_register(caplog, mocker):
 
 def test_watch(caplog, mocker):
     caplog.set_level(logging.INFO)
+    mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.config.load_kube_config')
     mocker.patch('kubernetes.watch.Watch.stream',
                  return_value=watch_events
                  )
@@ -59,9 +61,8 @@ def test_watch(caplog, mocker):
     assert 'testAnnotation' in caplog.text
     assert 0 == len(watcher.getPods('test'))
     watcher.start()
-    time.sleep(8)
+    time.sleep(2)
     assert 1 == len(watcher.getPods('test'))
-    assert kubernetes.client.CoreV1Api.list_pod_for_all_namespaces
 
 def test_watch_error(caplog, mocker):
     caplog.set_level(logging.INFO)
