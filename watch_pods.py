@@ -71,7 +71,8 @@ class Watcher(object):
                   self.pods[search['groupName']].pop(pod.status.pod_ip)
                 elif pod.status.pod_ip:
                   self.pods[search['groupName']][pod.status.pod_ip] = pod
-      except  client.rest.ApiException:
+      except  client.rest.ApiException as e:
+        logger.exception(e)
         logger.error("Error calling kubernetes API")
 
 """
