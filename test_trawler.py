@@ -175,7 +175,7 @@ def test_datapower_instance_readtimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', trawler=boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
@@ -190,7 +190,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', trawler=boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
