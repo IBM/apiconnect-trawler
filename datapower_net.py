@@ -77,7 +77,7 @@ class DataPowerNet(object):
                     if self.password:
                         password = self.password
                     else:
-                        self.load_password_from_secret(self.secret, i.metadata.namespace)
+                        password = self.load_password_from_secret(self.secret, i.metadata.namespace)
                     self.items[dp_key] = DataPower(
                         ip=ip,
                         port=port,
