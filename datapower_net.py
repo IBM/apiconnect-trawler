@@ -41,9 +41,9 @@ class DataPowerNet(object):
     def load_password_from_secret(self, secret_name, namespace):
         try:
             if self.use_kubeconfig:
-                self.load_kube_config()
+                config.load_kube_config()
             else:
-                self.load_incluster_config()
+                config.load_incluster_config()
             v1 = client.CoreV1Api()
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
             if 'password' in secrets_response.data:
