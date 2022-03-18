@@ -48,7 +48,7 @@ class DataPowerNet(object):
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
             if 'password' in secrets_response.data:
                 password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
-                logger.info("Password length is {}".format(self.username, len(self.password)))
+                logger.info("Password length is {}".format(self.username, len(password)))
             return password
         except client.rest.ApiException as e:
             logger.error('Error calling kubernetes API')
