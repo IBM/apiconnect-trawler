@@ -78,14 +78,13 @@ class DataPowerNet(object):
                         password = self.password
                     else:
                         self.load_password_from_secret(self.secret, i.metadata.namespace)
-
                     self.items[dp_key] = DataPower(
                         ip=ip,
                         port=port,
                         name=i.metadata.name,
                         namespace=i.metadata.namespace,
                         username=self.username,
-                        password=self.load_password_from_secret(self.secret),
+                        password=password,
                         trawler=self.trawler)
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
