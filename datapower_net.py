@@ -1,6 +1,7 @@
 import requests
 import alog
 import logging
+import base64
 from kubernetes import client, config
 import urllib3
 
@@ -14,7 +15,7 @@ logger = alog.use_channel("datapower")
 class DataPowerNet(object):
     namespace = None
     username = ''
-    password = ''
+    password = None
     use_kubeconfig = False
     items = {}
 
@@ -26,14 +27,33 @@ class DataPowerNet(object):
         self.namespace = config.get('namespace', None)
         # Datapower username to use for REST calls
         self.username = config.get('username', 'admin')
+        self.secret = config.get('secret', 'gateway-admin-secret')
         # Load password from secret `datapower_password`
-        self.password = trawler.read_secret('datapower_password')
+        try:
+            self.password = trawler.read_secret('datapower_password')
+        except FileNotFoundError:
+            self.password = None
+
         self.trawler = trawler
-        if self.password is None:
-            # Use out of box default password
-            self.password = 'admin'
         logger.info("Register pods to watch")
-        trawler.watcher.register('datapower', 'productName', 'DataPower Gateway')
+        trawler.watcher.register('datapower', 'app.kubernetes.io/component', 'datapower')
+
+    def load_password_from_secret(self, secret_name, namespace):
+        try:
+            if self.use_kubeconfig:
+                self.load_kube_config()
+            else:
+                self.load_incluster_config()
+            v1 = client.CoreV1Api()
+            secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
+            if 'password' in secrets_response.data:
+                password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
+                logger.info("Password length is {}".format(self.username, len(self.password)))
+            return password
+        except client.rest.ApiException as e:
+            logger.error('Error calling kubernetes API')
+            logger.debug(e)
+
 
     @alog.timed_function(logger.trace)
     def fish(self):
@@ -54,12 +74,18 @@ class DataPowerNet(object):
                     ip = i.status.pod_ip
                 dp_key = "{}:{}".format(i.metadata.namespace, i.metadata.name)
                 if dp_key not in self.items:
+                    if self.password:
+                        password = self.password
+                    else:
+                        self.load_password_from_secret(self.secret, i.metadata.namespace)
+
                     self.items[dp_key] = DataPower(
                         ip=ip,
                         port=port,
                         name=i.metadata.name,
+                        namespace=i.metadata.namespace,
                         username=self.username,
-                        password=self.password,
+                        password=self.load_password_from_secret(self.secret),
                         trawler=self.trawler)
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
@@ -71,6 +97,7 @@ class DataPowerNet(object):
 class DataPower(object):
     domain = 'apiconnect'
     name = "datapower"
+    namespace = "default"
     username = None
     password = None
     v5c = False
@@ -78,10 +105,11 @@ class DataPower(object):
     ip = '127.0.0.1'
     trawler = None
 
-    def __init__(self, ip, port, name, username, password, trawler):
+    def __init__(self, ip, port, name, namespace, username, password, trawler):
         self.ip = ip
         self.port = port
         self.name = name
+        self.namespace = namespace
         self.username = username
         self.password = password
         self.get_info()
