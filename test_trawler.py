@@ -98,7 +98,7 @@ def test_datapower_instance(mocker, caplog):
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
         v5c = '{"APIConnectGatewayService":{"V5CompatibilityMode":"on"}}'
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v5c)
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert dp.v5c
@@ -135,7 +135,7 @@ def test_datapower_peering(mocker, caplog):
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v6)
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
 
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert not dp.v5c
@@ -175,7 +175,7 @@ def test_datapower_instance_readtimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
@@ -190,7 +190,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
               exc=requests.exceptions.ReadTimeout())
         m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default',
               exc=requests.exceptions.ReadTimeout())
-        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'admin', 'password', boaty)
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text

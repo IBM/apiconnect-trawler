@@ -60,17 +60,22 @@ class Watcher(object):
     v1 = client.CoreV1Api()
     while True:
       try:
-        for event in w.stream(v1.list_pod_for_all_namespaces, _request_timeout=0):
-          pod = event['object']
-          for search in self.config:
-            if (pod.metadata.annotations and search['annotation'] in pod.metadata.annotations and 
-                search['value'] in pod.metadata.annotations[search['annotation']]):
-                logger.info("{}: {}/{} - {} {}".format(event['type'], pod.metadata.namespace, pod.metadata.name, pod.status.pod_ip, self.podReady(pod)))
-
-                if event['type'] == "DELETED":
-                  self.pods[search['groupName']].pop(pod.status.pod_ip)
-                elif pod.status.pod_ip:
-                  self.pods[search['groupName']][pod.status.pod_ip] = pod
+        for search in self.config:
+          for event in w.stream(
+                v1.list_pod_for_all_namespaces, 
+                _request_timeout=0, 
+                label_selector="{annotation}={value}".format(**search)):
+            pod = event['object']
+            logger.info("{}: {}/{} - {} {}".format(
+              event['type'], 
+              pod.metadata.namespace, 
+              pod.metadata.name, 
+              pod.status.pod_ip, 
+              self.podReady(pod)))
+            if event['type'] == "DELETED":
+              self.pods[search['groupName']].pop(pod.status.pod_ip)
+            elif pod.status.pod_ip:
+              self.pods[search['groupName']][pod.status.pod_ip] = pod
       except  client.rest.ApiException as e:
         logger.exception(e)
         logger.error("Error calling kubernetes API")
@@ -78,8 +83,8 @@ class Watcher(object):
 """
 Example usage:
 if __name__ == "__main__":
-  t = Watcher(True)
-  t.register('datapower', 'productName', 'DataPower Gateway')
+  t = Watcher()
+  t.register('datapower', 'app.kubernetes.io/component', 'datapower')
   t.start()
   time.sleep(30)
   print(len(t.pods['datapower']))
