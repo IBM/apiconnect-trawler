@@ -51,6 +51,9 @@ Each of the different areas of metrics is handled by a separate net, which can b
  - datapower_password - password to use with the datapower net for accessing the [DataPower REST management](https://www.ibm.com/support/knowledgecenter/SS9H2Y_7.7.0/com.ibm.dp.doc/restmgtinterface.html) interface. 
  - cloudmanager_password - password to use with the manager net to retreive API Connect usage metrics.
 
+## Issues and feature requests
+
+Feature requests and issue reports are welcome as github issues through this repository.
 
 ## More documentation
 
