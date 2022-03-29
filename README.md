@@ -51,9 +51,9 @@ Each of the different areas of metrics is handled by a separate net, which can b
  - datapower_password - password to use with the datapower net for accessing the [DataPower REST management](https://www.ibm.com/support/knowledgecenter/SS9H2Y_7.7.0/com.ibm.dp.doc/restmgtinterface.html) interface. 
  - cloudmanager_password - password to use with the manager net to retreive API Connect usage metrics.
 
-## Issues and feature requests
+## Issues, enhancements and pull requests
 
-Feature requests and issue reports are welcome as github issues through this repository.
+Feature requests and issue reports are welcome as [github issues](https://github.com/IBM/apiconnect-trawler/issues) through this repository.  Contributions of pull requests are also accepted and should be provided with a linked issue explaining the reasoning behind the change, should follow the existing code format standards and tests should be included in the PR ensuring the overall code coverage is not reduced. 
 
 ## More documentation
 
