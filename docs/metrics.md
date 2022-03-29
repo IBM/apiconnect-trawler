@@ -1,7 +1,7 @@
 # Metrics collected by trawler
 
 
-The kind of metrics that trawler collects are currently as follows:
+The kind of metrics that trawler collects are currently as follows and are provided in the standard prometheus scrape format on the configured port:
 
 ### Management subsystem
 
