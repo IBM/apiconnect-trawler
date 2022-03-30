@@ -176,73 +176,74 @@ class DataPower(object):
             logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
     def gather_metrics(self):
-        try:
-            self.fetch_data('TCPSummary', 'tcp', '_total')
-            self.fetch_data('LogTargetStatus', 'logtarget')
-            self.object_counts()
-            if self.v5c:
-                self.fetch_data('WSMAgentStatus', 'wsm')
-            # Needs statistics enabled:
-            if self.statistics_enabled:
-                self.fetch_data('HTTPTransactions2', 'http')
-        except requests.exceptions.ConnectTimeout:
-            logger.info(".. connect timed out (Check rest-mgmt is enabled and you have network connectivity)")
-        except requests.exceptions.ReadTimeout:
-            logger.info(".. read timed out (Check rest-mgmt is enabled and you have network connectivity)")
-        except requests.exceptions.ConnectionError:
-            logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
+        self.fetch_data('AnalyticsEndpointStatus', 'analytics')
+        self.fetch_data('TCPSummary', 'tcp', '_total')
+        self.fetch_data('LogTargetStatus', 'logtarget')
+        self.object_counts()
+        if self.v5c:
+            self.fetch_data('WSMAgentStatus', 'wsm')
+        # Needs statistics enabled:
+        if self.statistics_enabled:
+            self.fetch_data('HTTPTransactions2', 'http')
 
     def fetch_data(self, provider, label, suffix=''):
-        logger.debug("Processing status provider {}".format(provider))
-        url = "https://{}:{}/mgmt/status/{}/{}".format(
-            self.ip,
-            self.port,
-            self.domain,
-            provider)
-        status = requests.get(url,
-                              auth=(self.username, self.password),
-                              verify=False, timeout=1).json()
-        logger.debug(status)
-        data = status.get(provider, {})
-        if type(data) is list:
-            for item in data:
-                try:
-                    name = item[provider.replace('Status', '')]['value']
-                    del(item[provider.replace('Status', '')])
-                    logger.debug(item)
-                    for key in item:
-                        self.trawler.set_gauge('datapower',
-                                               "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
-                                               pod_name=self.name)
-                except KeyError:
-                    logger.warning('Failed to parse response for {}'.format(provider))
-                    logger.info(item)
-        else:
-            for key in data:
-                self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name)
+        try:
+            logger.debug("Processing status provider {}".format(provider))
+            url = "https://{}:{}/mgmt/status/{}/{}".format(
+                self.ip,
+                self.port,
+                self.domain,
+                provider)
+            status = requests.get(url,
+                                auth=(self.username, self.password),
+                                verify=False, timeout=1).json()
+            logger.debug(status)
+            data = status.get(provider, {})
+            if type(data) is list:
+                for item in data:
+                    try:
+                        name = item[provider.replace('Status', '')]['value']
+                        del(item[provider.replace('Status', '')])
+                        logger.debug(item)
+                        for key in item:
+                            self.trawler.set_gauge('datapower',
+                                                "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
+                                                pod_name=self.name)
+                    except KeyError:
+                        logger.warning('Failed to parse response for {}'.format(provider))
+                        logger.info(item)
+            else:
+                for key in data:
+                    self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name)
+        except requests.exceptions.RequestException as e:
+            logger.info("{}: {} (Check rest-mgmt is enabled and you have network connectivity)".format(provider, e.strerror))
 
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
     def object_counts(self):
         logger.info("Processing status provider ObjectStatus")
-        url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
-            self.ip,
-            self.port,
-            self.domain)
-        status = requests.get(url,
-                              auth=(self.username, self.password),
-                              verify=False, timeout=1).json()
-        logger.debug(status)
-        data = status.get('ObjectStatus', [])
-        counts = {}
-        for item in data:
-            if item['Class'] in counts:
-                counts[item['Class']] += 1
-            else:
-                counts[item['Class']] = 1
-        for item_class in counts:
-            self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name)
+        try:
+            url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
+                self.ip,
+                self.port,
+                self.domain)
+            status = requests.get(url,
+                                auth=(self.username, self.password),
+                                verify=False, timeout=1).json()
+            logger.debug(status)
+            data = status.get('ObjectStatus', [])
+            counts = {}
+            for item in data:
+                if item['Class'] in counts:
+                    counts[item['Class']] += 1
+                else:
+                    counts[item['Class']] = 1
+            for item_class in counts:
+                self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name)
 
-        logger.debug(counts)
+            logger.debug(counts)
+        except requests.exceptions.RequestException as e:
+            logger.info("Failed to get object count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
+
 
 
 
