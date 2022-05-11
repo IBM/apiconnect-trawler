@@ -41,6 +41,7 @@ spec:
         image: rickymoorhouse/trawler:latest
         imagePullPolicy: Always
         securityContext:
+          allowPrivilegeEscalation: false
           privileged: false
           runAsNonRoot: true
           readOnlyRootFilesystem: false
