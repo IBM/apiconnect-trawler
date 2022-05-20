@@ -68,9 +68,12 @@ class DataPowerNet():
         v1 = client.CoreV1Api()
         try:
             if None is self.namespace:
-                pods = v1.list_pod_for_all_namespaces(label_selector="app.kubernetes.io/component=datapower")
+                pods = v1.list_pod_for_all_namespaces(
+                    label_selector="app.kubernetes.io/component=datapower").items
             else:
-                pods = v1.list_namespaced_pod(label_selector="app.kubernetes.io/component=datapower", namespace=self.namespace)
+                pods = v1.list_namespaced_pod(
+                    label_selector="app.kubernetes.io/component=datapower", 
+                    namespace=self.namespace).items
             for i in pods:
                 # Use default port of 5554 if not annotated
                 port = i.metadata.annotations.get('restPort', 5554)

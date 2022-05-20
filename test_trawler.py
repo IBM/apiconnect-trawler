@@ -21,6 +21,20 @@ boaty.use_kubeconfig = False
 
 statistics_enabled = '{"Statistics":{"mAdminState":"enabled"}}'
 
+fake_pod = kubernetes.client.V1Pod(
+        metadata=kubernetes.client.V1ObjectMeta(
+            name='testpod', 
+            namespace='trawler-test',
+            annotations={"testAnnotation": "testValue"}
+        ),
+        status=kubernetes.client.V1PodStatus(
+            conditions=[
+                kubernetes.client.V1PodCondition(type='Ready', status=True)
+            ],
+            pod_ip="127.0.0.1"
+        )
+    )
+
 
 
 def test_check_nosettings():
@@ -74,7 +88,12 @@ def test_trawler_gauge_additional_labels(mocker, caplog):
     assert prometheus_client.REGISTRY.get_sample_value('labels_add_additional', labels={"pod": "pod_name", "group": "labels"}) == 1
 
 def test_datapower_fishing(mocker):
+    """ test the pod finding """
     mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.client.CoreV1Api.list_pod_for_all_namespaces',
+                 return_value=kubernetes.client.V1PodList(items=[fake_pod])
+                 )
+    mocker.patch('datapower_net.DataPowerNet.load_password_from_secret', return_value='password')
     new_net = datapower_net.DataPowerNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
