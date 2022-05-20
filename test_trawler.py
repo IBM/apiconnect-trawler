@@ -8,7 +8,6 @@ import manager_net
 import analytics_net
 import requests_mock
 import requests
-import watch_pods
 import prometheus_client
 import metrics_graphite
 import socket
@@ -76,11 +75,9 @@ def test_trawler_gauge_additional_labels(mocker, caplog):
 
 def test_datapower_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('watch_pods.Watcher.getPods')
     new_net = datapower_net.DataPowerNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
-    assert watch_pods.Watcher.getPods.called
 
 
 def test_datapower_fishing_error(mocker, caplog):
