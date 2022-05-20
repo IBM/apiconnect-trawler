@@ -1,7 +1,6 @@
-import requests
-import alog
-import logging
 import base64
+import alog
+import requests
 from kubernetes import client, config
 import urllib3
 
@@ -12,7 +11,8 @@ logger = alog.use_channel("datapower")
 # /mgmt/status/apiconnect/GatewayPeeringStatus
 
 
-class DataPowerNet(object):
+class DataPowerNet():
+    """ Collect Metrics from DataPower """
     namespace = None
     username = ''
     password = None
@@ -35,10 +35,12 @@ class DataPowerNet(object):
             self.password = None
 
         self.trawler = trawler
-        logger.info("Register pods to watch")
-        trawler.watcher.register('datapower', 'app.kubernetes.io/component', 'datapower')
+        if None is self.namespace:
+            logger.info("Register pods to watch")
+            trawler.watcher.register('datapower', 'app.kubernetes.io/component', 'datapower')
 
     def load_password_from_secret(self, secret_name, namespace):
+        """ Load password from secret using kubernetes apis """
         try:
             if self.use_kubeconfig:
                 config.load_kube_config()
@@ -48,23 +50,30 @@ class DataPowerNet(object):
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
             if 'password' in secrets_response.data:
                 password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
-                logger.info("Password length is {}".format(self.username, len(password)))
+                logger.info("Password length is {}".format(len(password)))
             return password
-        except client.rest.ApiException as e:
+        except client.rest.ApiException as exception:
             logger.error('Error calling kubernetes API')
-            logger.debug(e)
+            logger.debug(exception)
 
 
     @alog.timed_function(logger.trace)
     def fish(self):
-        # Go fishing for datapowers
+        """ Go fishing for datapowers """
         # Load appropriate k8s config
         if self.use_kubeconfig:
             config.load_kube_config()
         else:
             config.load_incluster_config()
+        v1 = client.CoreV1Api()
         try:
-            pods = self.trawler.watcher.getPods('datapower')
+            if None is self.namespace:
+                pods = v1.list_pod_for_all_namespaces(
+                    label_selector="app.kubernetes.io/component=datapower").items
+            else:
+                pods = v1.list_namespaced_pod(
+                    label_selector="app.kubernetes.io/component=datapower", 
+                    namespace=self.namespace).items
             for i in pods:
                 # Use default port of 5554 if not annotated
                 port = i.metadata.annotations.get('restPort', 5554)
@@ -88,12 +97,13 @@ class DataPowerNet(object):
                         trawler=self.trawler)
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
-        except client.rest.ApiException as e:
+        except client.rest.ApiException as exception:
             logger.error("Error calling kubernetes API")
-            logger.exception(e)
+            logger.debug(exception)
 
 
-class DataPower(object):
+class DataPower():
+    """ Object representing each datapower pod """
     domain = 'apiconnect'
     name = "datapower"
     namespace = "default"
@@ -113,10 +123,11 @@ class DataPower(object):
         self.password = password
         self.get_info()
         self.trawler = trawler
-        self.enable_statistics()
+        self.are_statistics_enabled()
         logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
 
     def get_info(self):
+        """ Get DP mode info """
         try:
             logger.info("Check mode")
             url = "https://{}:{}/mgmt/config/{}/APIConnectGatewayService/default".format(
@@ -142,11 +153,9 @@ class DataPower(object):
         except requests.exceptions.ConnectionError:
             logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
-    def enable_statistics(self):
+    def are_statistics_enabled(self):
+        """ Are statistics enabled?"""
         try:
-            # TODO - first check if statistics are already enabled via
-            #  https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics
-
             logger.info("Are statistics enabled?")
             url = "https://{}:{}/mgmt/config/{}/Statistics".format(
                 self.ip,
@@ -176,6 +185,7 @@ class DataPower(object):
             logger.info(".. connection refused (Check rest-mgmt is enabled and you have network connectivity)")
 
     def gather_metrics(self):
+        """ Gather datapower metrics """
         self.fetch_data('AnalyticsEndpointStatus', 'analytics')
         self.fetch_data('TCPSummary', 'tcp', '_total')
         self.fetch_data('LogTargetStatus', 'logtarget')
@@ -187,6 +197,7 @@ class DataPower(object):
             self.fetch_data('HTTPTransactions2', 'http')
 
     def fetch_data(self, provider, label, suffix=''):
+        """ fetch data from a status provider """
         try:
             logger.debug("Processing status provider {}".format(provider))
             url = "https://{}:{}/mgmt/status/{}/{}".format(
@@ -220,6 +231,7 @@ class DataPower(object):
 
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
     def object_counts(self):
+        """ Count objects within datapower domain """
         logger.info("Processing status provider ObjectStatus")
         try:
             url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
@@ -258,6 +270,7 @@ class DataPower(object):
 #      },
 
     def gateway_peering_status(self):
+        """ Get peering status detail """
         logger.info("Processing status provider GatewayPeeringStatus")
         url = "https://{}:{}/mgmt/status/{}/GatewayPeeringStatus".format(
             self.ip,
