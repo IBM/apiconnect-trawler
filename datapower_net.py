@@ -35,9 +35,6 @@ class DataPowerNet():
             self.password = None
 
         self.trawler = trawler
-        if None is self.namespace:
-            logger.info("Register pods to watch")
-            trawler.watcher.register('datapower', 'app.kubernetes.io/component', 'datapower')
 
     def load_password_from_secret(self, secret_name, namespace):
         """ Load password from secret using kubernetes apis """
