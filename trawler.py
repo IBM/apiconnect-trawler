@@ -91,6 +91,9 @@ class Trawler(object):
     def set_gauge(self, component, target_name, value, pod_name=None, labels={}):
         if pod_name:
             labels['pod'] = pod_name
+        if 'labels' in self.config['prometheus']:
+            labels =  {**self.config['prometheus']['labels'],**labels}
+        print(labels)
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
         logger.debug(labels)
         if type(value) is float or type(value) is int:

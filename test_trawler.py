@@ -75,13 +75,25 @@ def test_missing_secret():
 
 def test_trawler_gauge(mocker, caplog):
     caplog.set_level(logging.INFO)
+    if 'labels' in boaty.config['prometheus']:
+      boaty.config['prometheus'].pop('labels')
     boaty.set_gauge('component', 'target_name', 23, 'pod_name')
     assert 'Creating gauge ' in caplog.text
     # Lookup values from prometheus client
     assert prometheus_client.REGISTRY.get_sample_value('component_target_name', labels={"pod": "pod_name"}) == 23
 
+def test_trawler_gauge_default_labels(mocker, caplog):
+    caplog.set_level(logging.INFO)
+    boaty.config['prometheus']['labels'] = {'cluster':'goat'}
+    boaty.set_gauge('component', 'target_name_default', 23, 'pod_name')
+    assert 'Creating gauge ' in caplog.text
+    # Lookup values from prometheus client
+    assert prometheus_client.REGISTRY.get_sample_value('component_target_name_default', labels={"pod": "pod_name", "cluster":"goat"}) == 23
+
 def test_trawler_gauge_additional_labels(mocker, caplog):
     caplog.set_level(logging.INFO)
+    if 'labels' in boaty.config['prometheus']:
+      boaty.config['prometheus'].pop('labels')
     boaty.set_gauge('labels', 'add_additional', 1, pod_name='pod_name', labels={"group": "labels"})
     assert 'Creating gauge ' in caplog.text
     # Lookup values from prometheus client
