@@ -110,6 +110,7 @@ class DataPower():
     statistics_enabled = False
     ip = '127.0.0.1'
     trawler = None
+    labels = {}
 
     def __init__(self, ip, port, name, namespace, username, password, trawler):
         self.ip = ip
@@ -121,6 +122,7 @@ class DataPower():
         self.get_info()
         self.trawler = trawler
         self.are_statistics_enabled()
+        self.labels = {"namespace": self.namespace}
         logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
 
     def get_info(self):
@@ -216,13 +218,13 @@ class DataPower():
                         for key in item:
                             self.trawler.set_gauge('datapower',
                                                 "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
-                                                pod_name=self.name)
+                                                pod_name=self.name, labels=self.labels)
                     except KeyError:
                         logger.warning('Failed to parse response for {}'.format(provider))
                         logger.info(item)
             else:
                 for key in data:
-                    self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name)
+                    self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name, labels=self.labels)
         except requests.exceptions.RequestException as e:
             logger.info("{}: {} (Check rest-mgmt is enabled and you have network connectivity)".format(provider, e.strerror))
 
@@ -247,7 +249,7 @@ class DataPower():
                 else:
                     counts[item['Class']] = 1
             for item_class in counts:
-                self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name)
+                self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name, labels=self.labels)
 
             logger.debug(counts)
         except requests.exceptions.RequestException as e:
@@ -280,7 +282,7 @@ class DataPower():
 
         for entry in status["GatewayPeeringStatus"]:
             if self.ip == entry["Address"]:
-                labels = {}
+                labels = self.labels
                 labels["peer_group"] = entry["Name"]
                 pvalue = 0
                 lvalue = 0
@@ -288,9 +290,12 @@ class DataPower():
                     pvalue = 1
                 if entry["LinkStatus"] == "ok":
                     lvalue = 1
-                self.trawler.set_gauge('datapower', "gateway_peering_primary_info", pvalue, pod_name=self.name, labels=labels)
-                self.trawler.set_gauge('datapower', "gateway_peering_primary_link", lvalue, pod_name=self.name, labels=labels)
-                self.trawler.set_gauge('datapower', "gateway_peering_primary_offset", entry["ReplicationOffset"], pod_name=self.name, labels=labels)
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_info", pvalue, 
+                                       pod_name=self.name, labels=labels)
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_link", lvalue, 
+                                       pod_name=self.name, labels=labels)
+                self.trawler.set_gauge('datapower', "gateway_peering_primary_offset", entry["ReplicationOffset"], 
+                                       pod_name=self.name, labels=labels)
 
 
 if __name__ == "__main__":

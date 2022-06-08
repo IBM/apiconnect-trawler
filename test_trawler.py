@@ -152,9 +152,15 @@ def test_datapower_instance(mocker, caplog):
         dp.fetch_data('LogTargetStatus', 'test')
         assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsProcessed', labels={"pod": "myDp"}) == 210938
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsDropped', labels={"pod": "myDp"}) == 0
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_test_EventsPending', labels={"pod": "myDp"}) == 2
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_test_EventsProcessed', 
+            labels={"pod": "myDp", "namespace": "namespace"}) == 210938
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_test_EventsDropped', 
+            labels={"pod": "myDp", "namespace": "namespace"}) == 0
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_test_EventsPending', 
+            labels={"pod": "myDp", "namespace": "namespace"}) == 2
 
 def test_datapower_peering(mocker, caplog):
     caplog.set_level(logging.INFO)
@@ -189,9 +195,15 @@ def test_datapower_peering(mocker, caplog):
         dp.gateway_peering_status()
         assert 'Creating gauge ' in caplog.text
         # Lookup values from prometheus client
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_gateway_peering_primary_info', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_gateway_peering_primary_link', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 1
-        assert prometheus_client.REGISTRY.get_sample_value('datapower_gateway_peering_primary_offset', labels={"pod": "myDp", "peer_group": "rate-limit"}) == 170111082
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_gateway_peering_primary_info', 
+            labels={"pod": "myDp", "peer_group": "rate-limit", "namespace": "namespace"}) == 1
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_gateway_peering_primary_link', 
+            labels={"pod": "myDp", "peer_group": "rate-limit", "namespace": "namespace"}) == 1
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_gateway_peering_primary_offset', 
+            labels={"pod": "myDp", "peer_group": "rate-limit", "namespace": "namespace"}) == 170111082
 
 
 def test_datapower_instance_readtimeout(caplog, mocker):
