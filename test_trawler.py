@@ -22,18 +22,18 @@ boaty.use_kubeconfig = False
 statistics_enabled = '{"Statistics":{"mAdminState":"enabled"}}'
 
 fake_pod = kubernetes.client.V1Pod(
-        metadata=kubernetes.client.V1ObjectMeta(
-            name='testpod', 
-            namespace='trawler-test',
-            annotations={"testAnnotation": "testValue"}
-        ),
-        status=kubernetes.client.V1PodStatus(
-            conditions=[
-                kubernetes.client.V1PodCondition(type='Ready', status=True)
-            ],
-            pod_ip="127.0.0.1"
-        )
+    metadata=kubernetes.client.V1ObjectMeta(
+        name='testpod',
+        namespace='trawler-test',
+        annotations={"testAnnotation": "testValue"}
+    ),
+    status=kubernetes.client.V1PodStatus(
+        conditions=[
+            kubernetes.client.V1PodCondition(type='Ready', status=True)
+        ],
+        pod_ip="127.0.0.1"
     )
+)
 
 
 
@@ -235,6 +235,22 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
         assert dp.ip == '127.0.0.1'
         assert 'rest-mgmt' in caplog.text
 
+def test_datapower_instance_api_test(caplog, mocker):
+    caplog.set_level(logging.INFO)
+    api_tests = [
+        {"name":"test", "path": "/apitest", "method": "get"}
+    ]
+    with requests_mock.mock() as m:
+        v6 = '{"APIConnectGatewayService":{"V5CompatibilityMode":"off"}}'
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v6)
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
+        m.get('https://127.0.0.1:9443/apitest', text='1')
+        dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty, api_tests)
+        assert dp.name == 'myDp'
+        assert dp.ip == '127.0.0.1'
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_invoke_api_test_size', 
+            labels={"pod": "myDp", "namespace": "namespace"}) == 1
 
 def test_manager_fishing_error(mocker, caplog):
     caplog.set_level(logging.INFO)
