@@ -236,6 +236,7 @@ def test_datapower_instance_connecttimeout(caplog, mocker):
         assert 'rest-mgmt' in caplog.text
 
 def test_datapower_instance_api_test(caplog, mocker):
+    """ Test per gateway api testing """
     caplog.set_level(logging.INFO)
     api_tests = [
         {"name":"test", "path": "/apitest", "method": "get"}
@@ -248,9 +249,17 @@ def test_datapower_instance_api_test(caplog, mocker):
         dp = datapower_net.DataPower('127.0.0.1', '5554', 'myDp', 'namespace', 'admin', 'password', boaty, api_tests)
         assert dp.name == 'myDp'
         assert dp.ip == '127.0.0.1'
+        assert dp.api_tests == api_tests
+        dp.invoke_api(dp.api_tests[0])
         assert prometheus_client.REGISTRY.get_sample_value(
             'datapower_invoke_api_test_size', 
             labels={"pod": "myDp", "namespace": "namespace"}) == 1
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_invoke_api_test_time', 
+            labels={"pod": "myDp", "namespace": "namespace"})
+        assert prometheus_client.REGISTRY.get_sample_value(
+            'datapower_invoke_api_test_status_total', 
+            labels={"pod": "myDp", "namespace": "namespace", "code": "200"})
 
 def test_manager_fishing_error(mocker, caplog):
     caplog.set_level(logging.INFO)
