@@ -116,6 +116,8 @@ class DataPower():
     v5c = False
     statistics_enabled = False
     ip = '127.0.0.1'
+    port = 5554
+    apiPort = 9443
     trawler = None
     api_tests = None
     labels = {}
@@ -311,33 +313,44 @@ class DataPower():
                                        pod_name=self.name, labels=labels)
 
     def invoke_api(self, api):
+        """ invoke api_tests endpoints """
         http_call = getattr(requests, api['method']) 
-        result = http_call(
-            "https://{}:9443{}".format(self.ip, api['path']), 
-            headers=api.get('headers', None),
-            timeout=5,
-            verify=False,
-            allow_redirects=False
-        )
-        elapsed_time = result.elapsed.microseconds
-        size = len(result.text)
-        status = result.status_code
-        self.trawler.set_gauge(
-            'datapower',
-            "invoke_api_{}_size".format(api['name']),
-            size,
-            pod_name=self.name, labels=self.labels)
-        self.trawler.set_gauge(
-            'datapower',
-            "invoke_api_{}_status".format(api['name']),
-            status,
-            pod_name=self.name, labels=self.labels)
-        self.trawler.set_gauge(
-            'datapower',
-            "invoke_api_{}_time".format(api['name']),
-            elapsed_time,
-            pod_name=self.name, labels=self.labels)
-
+        try:
+            result = http_call(
+                "https://{}:{}{}".format(self.ip, self.apiPort, api['path']), 
+                headers=api.get('headers', None),
+                timeout=5,
+                verify=False,
+                allow_redirects=False
+            )
+            elapsed_time = result.elapsed.microseconds
+            size = len(result.text)
+            status = result.status_code
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_size".format(api['name']),
+                size,
+                pod_name=self.name, labels=self.labels)
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_time".format(api['name']),
+                elapsed_time,
+                pod_name=self.name, labels=self.labels)
+            status_labels = self.labels
+            status_labels['code'] = status
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_status_total".format(api['name']),
+                1,
+                pod_name=self.name, labels=self.labels)
+        except requests.RequestException:
+            status_labels = self.labels
+            status_labels['code'] = '000'
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_status_total".format(api['name']),
+                0,
+                pod_name=self.name, labels=self.labels)
 
 if __name__ == "__main__":
     net = DataPowerNet()
