@@ -18,6 +18,7 @@ class DataPowerNet():
     password = None
     use_kubeconfig = False
     items = {}
+    api_tests = None
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -28,6 +29,9 @@ class DataPowerNet():
         # Datapower username to use for REST calls
         self.username = config.get('username', 'admin')
         self.secret = config.get('secret', 'gateway-admin-secret')
+        api_test_config = config.get('api_tests', None)
+        if api_test_config and api_test_config['enabled'] == True:
+            self.api_tests = api_test_config['apis']
         # Load password from secret `datapower_password`
         try:
             self.password = trawler.read_secret('datapower_password')
@@ -91,12 +95,15 @@ class DataPowerNet():
                         namespace=i.metadata.namespace,
                         username=self.username,
                         password=password,
-                        trawler=self.trawler)
+                        trawler=self.trawler,
+                        api_tests=self.api_tests
+                        )
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
         except client.rest.ApiException as exception:
             logger.error("Error calling kubernetes API")
             logger.debug(exception)
+
 
 
 class DataPower():
@@ -109,10 +116,13 @@ class DataPower():
     v5c = False
     statistics_enabled = False
     ip = '127.0.0.1'
+    port = 5554
+    apiPort = 9443
     trawler = None
+    api_tests = None
     labels = {}
 
-    def __init__(self, ip, port, name, namespace, username, password, trawler):
+    def __init__(self, ip, port, name, namespace, username, password, trawler, api_tests=None):
         self.ip = ip
         self.port = port
         self.name = name
@@ -121,6 +131,7 @@ class DataPower():
         self.password = password
         self.get_info()
         self.trawler = trawler
+        self.api_tests = api_tests
         self.are_statistics_enabled()
         self.labels = {"namespace": self.namespace}
         logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
@@ -194,6 +205,10 @@ class DataPower():
         # Needs statistics enabled:
         if self.statistics_enabled:
             self.fetch_data('HTTPTransactions2', 'http')
+        if self.api_tests:
+            for api in self.api_tests:
+                self.invoke_api(api)
+
 
     def fetch_data(self, provider, label, suffix=''):
         """ fetch data from a status provider """
@@ -297,6 +312,45 @@ class DataPower():
                 self.trawler.set_gauge('datapower', "gateway_peering_primary_offset", entry["ReplicationOffset"], 
                                        pod_name=self.name, labels=labels)
 
+    def invoke_api(self, api):
+        """ invoke api_tests endpoints """
+        http_call = getattr(requests, api['method']) 
+        try:
+            result = http_call(
+                "https://{}:{}{}".format(self.ip, self.apiPort, api['path']), 
+                headers=api.get('headers', None),
+                timeout=5,
+                verify=False,
+                allow_redirects=False
+            )
+            elapsed_time = result.elapsed.microseconds
+            size = len(result.text)
+            status = result.status_code
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_size".format(api['name']),
+                size,
+                pod_name=self.name, labels=self.labels)
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_time".format(api['name']),
+                elapsed_time,
+                pod_name=self.name, labels=self.labels)
+            status_labels = self.labels
+            status_labels['code'] = status
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_status_total".format(api['name']),
+                1,
+                pod_name=self.name, labels=self.labels)
+        except requests.RequestException:
+            status_labels = self.labels
+            status_labels['code'] = '000'
+            self.trawler.set_gauge(
+                'datapower',
+                "invoke_api_{}_status_total".format(api['name']),
+                0,
+                pod_name=self.name, labels=self.labels)
 
 if __name__ == "__main__":
     net = DataPowerNet()
