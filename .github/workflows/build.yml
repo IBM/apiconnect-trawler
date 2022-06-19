@@ -26,13 +26,17 @@ jobs:
     steps:
       - name: Clone the repository
         uses: actions/checkout@v2
+        
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
 
       - name: Buildah Action
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
-          tags: latest
+          tags: latest ${{ env.VERSION }}
           containerfiles: |
             ./Containerfile
 
