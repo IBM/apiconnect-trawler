@@ -9,13 +9,14 @@ import threading
 import yaml
 import click
 from certs_net import CertsNet
+from apiconnect_net import APIConnectNet
 from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
 from watch_pods import Watcher
 from prometheus_client import start_http_server
 import metrics_graphite
-from prometheus_client import Gauge
+from prometheus_client import Gauge, Counter
 
 
 logger = alog.use_channel("trawler")
@@ -42,7 +43,7 @@ class Trawler(object):
             self.load_config(config_file)
         if 'logging' in self.config:
             alog.configure(
-              default_level=self.config['logging'].get('level', 'info'),
+              default_level=self.config['logging'].get('level', 'debug'),
               filters=self.config['logging'].get('filters', None),
               formatter=self.config['logging'].get('format', 'json')
             )
@@ -88,12 +89,14 @@ class Trawler(object):
             logger.exception(e)
             exit(2)
 
-    def set_gauge(self, component, target_name, value, pod_name=None, labels={}):
+    def set_gauge(self, component, target_name, value, pod_name=None, labels=None):
+        """ Set or create prometheus gauge """
+        if not labels:
+            labels = {}
         if pod_name:
             labels['pod'] = pod_name
         if 'labels' in self.config['prometheus']:
-            labels =  {**self.config['prometheus']['labels'],**labels}
-        print(labels)
+            labels = {**self.config['prometheus']['labels'],**labels}
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
         logger.debug(labels)
         if type(value) is float or type(value) is int:
@@ -111,12 +114,50 @@ class Trawler(object):
                             prometheus_target,
                             prometheus_target)
 
-                logger.debug("Setting gauge {} to {}".format(
-                    self.gauges[prometheus_target]._name, value))
+                logger.debug("Setting gauge %s to %f",
+                    self.gauges[prometheus_target]._name, value)
                 if labels:
                     self.gauges[prometheus_target].labels(**labels).set(value)
                 else:
                     self.gauges[prometheus_target].set(value)
+            if self.config['graphite']['enabled']:
+                if pod_name:
+                    metric_name = "{}.{}.{}".format(component, pod_name, target_name)
+                else: 
+                    metric_name = "{}.{}".format(component, target_name)
+                self.graphite.stage(metric_name, value)
+
+    def inc_counter(self, component, target_name, value, pod_name=None, labels=None):
+        """ Set or increase prometheus counter """
+        if not labels:
+            labels = {}
+        if pod_name:
+            labels['pod'] = pod_name
+        if 'labels' in self.config['prometheus']:
+            labels = {**self.config['prometheus']['labels'],**labels}
+        logger.debug("Entering inc_counter - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug(labels)
+        if type(value) is float or type(value) is int:
+            target_name = target_name.replace('-', '_')
+            if self.config['prometheus']['enabled']:
+                prometheus_target = "{}_{}".format(component, target_name.replace('.', '_'))
+                if prometheus_target not in self.gauges:
+                    logger.info("Creating counter {}".format(prometheus_target))
+                    if labels:
+                        self.gauges[prometheus_target] = Counter(
+                            prometheus_target,
+                            prometheus_target, labels.keys())
+                    else:
+                        self.gauges[prometheus_target] = Counter(
+                            prometheus_target,
+                            prometheus_target)
+
+                logger.debug("Setting gauge %s to %f",
+                    self.gauges[prometheus_target]._name, value)
+                if labels:
+                    self.gauges[prometheus_target].labels(**labels).inc()
+                else:
+                    self.gauges[prometheus_target].inc()
             if self.config['graphite']['enabled']:
                 if pod_name:
                     metric_name = "{}.{}.{}".format(component, pod_name, target_name)
@@ -131,6 +172,8 @@ class Trawler(object):
         nets = []
         if 'certs' in self.config['nets'] and self.config['nets']['certs'].get('enabled', True):
             nets.append(CertsNet(self.config['nets']['certs'], self))
+        if 'apiconnect' in self.config['nets'] and self.config['nets']['apiconnect'].get('enabled', True):
+            nets.append(APIConnectNet(self.config['nets']['apiconnect'], self))
         if 'datapower' in self.config['nets'] and self.config['nets']['datapower'].get('enabled', True):
             nets.append(DataPowerNet(self.config['nets']['datapower'], self))
         if 'manager' in self.config['nets'] and self.config['nets']['manager'].get('enabled', True):
