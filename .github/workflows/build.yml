@@ -53,4 +53,4 @@ jobs:
         with:
           registry: "ghcr.io"
           image: ${{ steps.build-image.outputs.image }}
-          tags: latest ${{ github.ref }}
+          tags: latest ${{ github.ref_name }}
