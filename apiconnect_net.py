@@ -10,7 +10,7 @@ logger = alog.use_channel("apiconnect")
 
 class APIConnectNet(object):
     namespace = 'apic-management'
-    use_kubeconfig = True
+    use_kubeconfig = False
     trawler = None
 
     def __init__(self, config, trawler):
@@ -20,6 +20,7 @@ class APIConnectNet(object):
         # Namespace to find CRs
         self.namespace = config.get('namespace', 'default')
         self.trawler = trawler
+        self.use_kubeconfig = trawler.use_kubeconfig
 
     @alog.timed_function(logger.trace)
     def fish(self):
