@@ -116,10 +116,13 @@ class Trawler(object):
 
                 logger.debug("Setting gauge %s to %f",
                     self.gauges[prometheus_target]._name, value)
-                if labels:
-                    self.gauges[prometheus_target].labels(**labels).set(value)
-                else:
-                    self.gauges[prometheus_target].set(value)
+                try:
+                    if labels:
+                        self.gauges[prometheus_target].labels(**labels).set(value)
+                    else:
+                        self.gauges[prometheus_target].set(value)
+                except ValueError as valueException:
+                    self.logger.exception(valueException)
             if self.config['graphite']['enabled']:
                 if pod_name:
                     metric_name = "{}.{}.{}".format(component, pod_name, target_name)

@@ -224,6 +224,7 @@ class DataPower():
                                 verify=False, timeout=1).json()
             logger.debug(status)
             data = status.get(provider, {})
+            labels = self.labels
             if type(data) is list:
                 for item in data:
                     try:
@@ -231,15 +232,21 @@ class DataPower():
                         del(item[provider.replace('Status', '')])
                         logger.debug(item)
                         for key in item:
-                            self.trawler.set_gauge('datapower',
-                                                "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
-                                                pod_name=self.name, labels=self.labels)
+                            self.trawler.set_gauge(
+                                'datapower',
+                                "{}.{}.{}{}".format(label, name, key, suffix), item[key], 
+                                pod_name=self.name, labels=self.labels)
                     except KeyError:
                         logger.warning('Failed to parse response for {}'.format(provider))
                         logger.info(item)
             else:
                 for key in data:
-                    self.trawler.set_gauge('datapower', "{}_{}{}".format(label, key, suffix), data[key], pod_name=self.name, labels=self.labels)
+                    self.trawler.set_gauge(
+                        'datapower', 
+                        "{}_{}{}".format(label, key, suffix), 
+                        data[key], 
+                        pod_name=self.name, 
+                        labels=labels)
         except requests.exceptions.RequestException as e:
             logger.info("{}: {} (Check rest-mgmt is enabled and you have network connectivity)".format(provider, e.strerror))
 
@@ -342,7 +349,7 @@ class DataPower():
                 'datapower',
                 "invoke_api_{}_status_total".format(api['name']),
                 1,
-                pod_name=self.name, labels=self.labels)
+                pod_name=self.name, labels=status_labels)
         except requests.RequestException:
             status_labels = self.labels
             status_labels['code'] = '000'
@@ -350,7 +357,7 @@ class DataPower():
                 'datapower',
                 "invoke_api_{}_status_total".format(api['name']),
                 0,
-                pod_name=self.name, labels=self.labels)
+                pod_name=self.name, labels=status_labels)
 
 if __name__ == "__main__":
     net = DataPowerNet()
