@@ -323,6 +323,7 @@ class DataPower():
         """ invoke api_tests endpoints """
         http_call = getattr(requests, api['method']) 
         try:
+            invoke_labels = self.labels
             result = http_call(
                 "https://{}:{}{}".format(self.ip, self.apiPort, api['path']), 
                 headers=api.get('headers', None),
@@ -333,31 +334,31 @@ class DataPower():
             elapsed_time = result.elapsed.microseconds
             size = len(result.text)
             status = result.status_code
+
             self.trawler.set_gauge(
                 'datapower',
                 "invoke_api_{}_size".format(api['name']),
                 size,
-                pod_name=self.name, labels=self.labels)
+                pod_name=self.name, labels=invoke_labels)
             self.trawler.set_gauge(
                 'datapower',
                 "invoke_api_{}_time".format(api['name']),
                 elapsed_time,
-                pod_name=self.name, labels=self.labels)
-            status_labels = self.labels
-            status_labels['code'] = status
-            self.trawler.set_gauge(
+                pod_name=self.name, labels=invoke_labels)
+
+            status_labels = {'code':status}
+            self.trawler.inc_counter(
                 'datapower',
                 "invoke_api_{}_status_total".format(api['name']),
                 1,
-                pod_name=self.name, labels=status_labels)
+                pod_name=self.name, labels={**status_labels, **self.labels})
         except requests.RequestException:
-            status_labels = self.labels
-            status_labels['code'] = '000'
-            self.trawler.set_gauge(
+            status_labels = {'code': '000'}
+            self.trawler.inc_counter(
                 'datapower',
                 "invoke_api_{}_status_total".format(api['name']),
                 0,
-                pod_name=self.name, labels=status_labels)
+                pod_name=self.name, labels={**status_labels, **self.labels})
 
 if __name__ == "__main__":
     net = DataPowerNet()
