@@ -12,6 +12,7 @@ class APIConnectNet(object):
     namespace = 'apic-management'
     use_kubeconfig = False
     trawler = None
+    health_prefix = "apiconnect"
 
     def __init__(self, config, trawler):
         # Takes in config object and trawler instance it's behind
@@ -19,6 +20,8 @@ class APIConnectNet(object):
         # self.use_kubeconfig = trawler.use_kubeconfig
         # Namespace to find CRs
         self.namespace = config.get('namespace', 'default')
+        self.health_prefix = config.get('health_prefix', 'apiconnect')
+        self.health_label = config.get('health_label', {})
         self.trawler = trawler
         self.use_kubeconfig = trawler.use_kubeconfig
 
@@ -45,6 +48,20 @@ class APIConnectNet(object):
                     customResource['plural'])
                 for item in api_response['items']:
                     for condition in item['status']['conditions']:
+                        if condition['type'] == 'Ready':
+                            if condition['status']:
+                                health = 1
+                            else:
+                                health = 0
+                            self.trawler.set_gauge(
+                                self.health_prefix,
+                                "health_status",
+                                health,
+                                labels={
+                                    "component": "{} {}".format(customResource['plural'][:-1], item['metadata']['name']),
+                                    **self.health_label
+                                })
+
                         self.trawler.set_gauge(
                             'apiconnect',
                             "{}_status".format(customResource['plural']),
