@@ -1,3 +1,4 @@
+from xmlrpc.client import Boolean
 import requests
 import json
 import time
@@ -16,6 +17,7 @@ logger = alog.use_channel("management")
 
 
 class ManagerNet(object):
+    """ Gather metrics from API Manager """
     namespace = 'apic-management'
     username = ''
     password = ''
@@ -30,11 +32,12 @@ class ManagerNet(object):
     data_time = 0
     use_kubeconfig = False
     errored = False
+    org_metrics = False
     version = None
     trawler = None
 
     def __init__(self, config, trawler):
-        # Takes in config object and trawler instance it's behind
+        """ Takes in config object and trawler instance it's behind """
         # Use kubeconfig or in-cluster config for k8s comms
         self.use_kubeconfig = trawler.use_kubeconfig
         # Namespace to find managemnet pods
@@ -42,6 +45,7 @@ class ManagerNet(object):
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
         self.grant_type = config.get('grant_type', 'password')
+        self.org_metrics = (config.get('process_org_metrics', 'true') == 'true')
         if 'secret' in config:
             # If config points to a secret, then load from that
             # either in this namespace, or the specified one
@@ -51,8 +55,12 @@ class ManagerNet(object):
         else:
             # Cloud manager username to use for REST calls
             self.username = config.get('username', 'admin')
-            # Load password from secret `cloudmanager_password`
-            self.password = trawler.read_secret('cloudmanager_password')
+            if self.grant_type == 'client_credentials':
+                self.client_id = trawler.read_secret('client_id')
+                self.client_secret = trawler.read_secret('client_secret')
+            else:
+                # Load password from secret `cloudmanager_password`
+                self.password = trawler.read_secret('cloudmanager_password')
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
@@ -158,6 +166,7 @@ class ManagerNet(object):
 
     @alog.timed_function(logger.trace)
     def fish(self):
+        """ main metrics gathering """
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
             return
@@ -195,14 +204,16 @@ class ManagerNet(object):
             for object_type in self.data['counts']:
                 logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
                 self.trawler.set_gauge('manager', object_type, self.data['counts'][object_type])
-            for org in self.data['orgs']['results']:
-                if org['org_type'] != 'admin':
-                    for catalog in org['catalogs']['results']:
-                        self.process_org_metrics(org['name'], catalog['name'])
+            if self.org_metrics:
+                for org in self.data['orgs']['results']:
+                    if org['org_type'] != 'admin':
+                        for catalog in org['catalogs']['results']:
+                            self.process_org_metrics(org['name'], catalog['name'])
         self.get_webhook_status()
 
 
     def process_org_metrics(self, org_name, catalog_name):
+        """ process metrics for a specific catalog """
         if self.token:
             logger.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
             url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
