@@ -1,17 +1,16 @@
 import alog
-import logging
 import tempfile
 from kubernetes import client, config
 import urllib3
 import base64
 import requests
-import json
 
 urllib3.disable_warnings()
 logger = alog.use_channel("analytics")
 
 
 class AnalyticsNet(object):
+    """ Analytics Subsystem data """
     namespace = ''
     token = None
     token_expires = 0
@@ -41,6 +40,7 @@ class AnalyticsNet(object):
             self.find_hostname_and_certs()
 
     def find_hostname_and_certs(self):
+        """ Lookup hostname and certs for communicating with analytics subsystem"""
         try:
             # Initialise the k8s API
             if self.use_kubeconfig:
@@ -56,11 +56,12 @@ class AnalyticsNet(object):
                 for service in servicelist.items:
                     if 'analytics-storage' in service.metadata.name:
                         for port_object in service.spec.ports:
-                            if port_object.name == 'http-es':
+                            if port_object.name == 'http-es' or port_object.name == 'http':
                                 port = 9200  # default
                                 if port_object.port:
                                     port = port_object.port
-                                self.hostname = "{}.{}.svc.cluster.local.:{}".format(service.metadata.name, self.namespace, port)
+                                self.hostname = "{}.{}.svc.cluster.local.:{}".format(
+                                    service.metadata.name, self.namespace, port)
                 if self.hostname:
                     logger.info("Identified service host: {}".format(self.hostname))
             # Get certificates to communicate with analytics
@@ -85,6 +86,7 @@ class AnalyticsNet(object):
             logger.exception(e)
 
     def buildQuery(self):
+        """ Build search query """
         return """{
             "size": 0,
             "query": {
@@ -104,16 +106,19 @@ class AnalyticsNet(object):
 
     @alog.timed_function(logger.trace)
     def fish(self):
+        """ main metrics gathering function """
         errored = False
         if self.hostname:
             try:
-              r = requests.get('https://{}/_cluster/health'.format(self.hostname), verify=False,
-                             cert=self.certificates.name)
-            
+              r = requests.get('https://{}/_cluster/health'.format(self.hostname),
+                               verify=False,
+                               cert=self.certificates.name)
+
               health_obj = r.json()
               logger.debug(r.text)
-            except requests.exceptions.ConnectionError as e:
-              logger.error("Connection error on attempt to get cluster health from 'https://{}/_cluster/health'".format(self.hostname))
+            except requests.exceptions.ConnectionError:
+              logger.error("Error getting cluster health from 'https://{}/_cluster/health'".format(
+                           self.hostname))
               errored = True
               health_obj = {}
 
@@ -134,7 +139,7 @@ class AnalyticsNet(object):
               self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
               self.trawler.set_gauge('analytics', 'pending_tasks_total', health_obj['number_of_pending_tasks'])
               calls_req = requests.get('https://{}/apic-api-r/_search'.format(self.hostname), verify=False,
-                             cert=self.certificates.name, data=self.buildQuery())
+                                       cert=self.certificates.name, data=self.buildQuery())
 
               summary = calls_req.json()
               self.trawler.set_gauge('analytics', 'apicalls_lasthour.total', summary['hits']['total'])
@@ -143,7 +148,6 @@ class AnalyticsNet(object):
                   self.trawler.set_gauge('analytics', 'apicalls_lasthour.{}'.format(status), doc_count)
             else:
               logger.info("Cluster health failed, so no data and no point querying for calls")
-
 
 
 if __name__ == "__main__":
