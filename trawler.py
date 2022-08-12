@@ -3,8 +3,6 @@
 import os
 import time
 import alog
-import logging
-import logging.config
 import threading
 import yaml
 import click
@@ -43,9 +41,9 @@ class Trawler(object):
             self.load_config(config_file)
         if 'logging' in self.config:
             alog.configure(
-              default_level=self.config['logging'].get('level', 'debug'),
-              filters=self.config['logging'].get('filters', None),
-              formatter=self.config['logging'].get('format', 'json')
+                default_level=self.config['logging'].get('level', 'debug'),
+                filters=self.config['logging'].get('filters', None),
+                formatter=self.config['logging'].get('format', 'json')
             )
         else:
             alog.configure(default_level='info', formatter='json')
@@ -72,7 +70,7 @@ class Trawler(object):
         self.watcher = Watcher()
 
     def read_secret(self, key):
-        # Helper function read secrets from mounted k8s secrets
+        """ Helper function read secrets from mounted k8s secrets """
         try:
             with open("{}/{}".format(self.secrets_path, key), 'r') as secret:
                 value = secret.read().rstrip()
@@ -96,7 +94,7 @@ class Trawler(object):
         if pod_name:
             labels['pod'] = pod_name
         if 'labels' in self.config['prometheus']:
-            labels = {**self.config['prometheus']['labels'],**labels}
+            labels = {**self.config['prometheus']['labels'], **labels}
         logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
         logger.debug(labels)
         if type(value) is float or type(value) is int:
@@ -115,18 +113,18 @@ class Trawler(object):
                             prometheus_target)
 
                 logger.debug("Setting gauge %s to %f",
-                    self.gauges[prometheus_target]._name, value)
+                             self.gauges[prometheus_target]._name, value)
                 try:
                     if labels:
                         self.gauges[prometheus_target].labels(**labels).set(value)
                     else:
                         self.gauges[prometheus_target].set(value)
-                except ValueError as valueException:
-                    self.logger.exception(valueException)
+                except ValueError as value_exception:
+                    self.logger.exception(value_exception)
             if self.config['graphite']['enabled']:
                 if pod_name:
                     metric_name = "{}.{}.{}".format(component, pod_name, target_name)
-                else: 
+                else:
                     metric_name = "{}.{}".format(component, target_name)
                 self.graphite.stage(metric_name, value)
 
@@ -137,7 +135,7 @@ class Trawler(object):
         if pod_name:
             labels['pod'] = pod_name
         if 'labels' in self.config['prometheus']:
-            labels = {**self.config['prometheus']['labels'],**labels}
+            labels = {**self.config['prometheus']['labels'], **labels}
         logger.debug("Entering inc_counter - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
         logger.debug(labels)
         if type(value) is float or type(value) is int:
@@ -156,7 +154,7 @@ class Trawler(object):
                             prometheus_target)
 
                 logger.debug("Setting gauge %s to %f",
-                    self.gauges[prometheus_target]._name, value)
+                             self.gauges[prometheus_target]._name, value)
                 if labels:
                     self.gauges[prometheus_target].labels(**labels).inc()
                 else:
@@ -164,12 +162,13 @@ class Trawler(object):
             if self.config['graphite']['enabled']:
                 if pod_name:
                     metric_name = "{}.{}.{}".format(component, pod_name, target_name)
-                else: 
+                else:
                     metric_name = "{}.{}".format(component, target_name)
                 self.graphite.stage(metric_name, value)
 
     @alog.timed_function(logger.trace)
     def trawl_metrics(self):
+        """ Main loop to trawl for metrics """
         # Initialise
         logger.info("Laying nets...")
         nets = []
@@ -183,7 +182,7 @@ class Trawler(object):
             nets.append(ManagerNet(self.config['nets']['manager'], self))
         if 'analytics' in self.config['nets'] and self.config['nets']['analytics'].get('enabled', True):
             nets.append(AnalyticsNet(self.config['nets']['analytics'], self))
-        
+
         # Start thread to watch if needed (nets need to call watcher.register)
         if self.watcher.enabled:
             watchThread = threading.Thread(target=self.watcher.watch_pods, daemon=True)
@@ -197,6 +196,7 @@ class Trawler(object):
                 self.graphite.store()
             time.sleep(self.frequency)
 
+
 @click.command()
 @click.version_option()
 @click.option('-c', '--config', required=False, envvar='CONFIG',
@@ -204,10 +204,10 @@ class Trawler(object):
               default=None,
               type=click.Path())
 def cli(config=None):
+    """ run main trawler application """
     trawler = Trawler(config)
     trawler.trawl_metrics()
 
 
 if __name__ == '__main__':
     cli()
-
