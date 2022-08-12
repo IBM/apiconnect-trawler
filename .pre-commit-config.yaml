@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: https://gitlab.com/pycqa/flake8
-    rev: 'master'  # Use the sha / tag you want to point at
+    rev: '3.9.2'  # Use the sha / tag you want to point at
     hooks:
     -   id: flake8
         args: []
