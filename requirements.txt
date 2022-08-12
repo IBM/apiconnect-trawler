@@ -12,3 +12,5 @@ pytest-cov
 pytest-mock
 requests-mock
 alchemy-logging>=1.0.3
+flask
+Werkzeug
