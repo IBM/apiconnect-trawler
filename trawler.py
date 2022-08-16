@@ -12,12 +12,10 @@ from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
 from watch_pods import Watcher
-from prometheus_client import start_http_server
+from prometheus_client import start_http_server, Gauge, Counter, make_wsgi_app
 import metrics_graphite
-from prometheus_client import Gauge, Counter
 from flask import Flask
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from prometheus_client import make_wsgi_app
 import ssl
 
 
@@ -44,8 +42,9 @@ class Trawler(object):
     graphite = None
     gauges = {}
 
-    def __init__(self, config_file=None, mtls=False):
+    def __init__(self, config_file=None, ):
         self.secrets_path = os.getenv('SECRETS', self.secrets_path)
+        self.mtls = os.getenv('HAS_MTLS_ENABLED')
         if config_file:
             self.load_config(config_file)
         if 'logging' in self.config:
@@ -222,10 +221,9 @@ class Trawler(object):
               help="Specifies an alternative config file",
               default=None,
               type=click.Path())
-@click.option('--mtls', is_flag=True, envar='MTLS', help="Will enable mtls support.")
-def cli(config=None, mtls=False):
+def cli(config=None, ):
     """ run main trawler application """
-    trawler = Trawler(config, mtls)
+    trawler = Trawler(config)
     trawler.trawl_metrics()
 
 
