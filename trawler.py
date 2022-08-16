@@ -38,13 +38,14 @@ class Trawler(object):
     use_kubeconfig = True
     # Default path for secrets in container build - override with envvar SECRETS
     mtls = False
+    # mtls defaults to false. can be set via the ENABLE_MTLS environment variable
     secrets_path = '/app/secrets'
     graphite = None
     gauges = {}
 
     def __init__(self, config_file=None, ):
         self.secrets_path = os.getenv('SECRETS', self.secrets_path)
-        self.mtls = os.getenv("HAS_MTLS_ENABLED", 'False').lower() in ('true', '1', 't')
+        self.mtls = os.getenv("ENABLE_MTLS", 'False').lower() in ('true', '1', 't')
         if config_file:
             self.load_config(config_file)
         if 'logging' in self.config:
