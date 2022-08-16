@@ -64,7 +64,7 @@ class Trawler(object):
                 context.verify_mode = ssl.CERT_REQUIRED
                 context.load_verify_locations(cert_path + 'ca.crt')
                 context.load_cert_chain(cert_path + 'tls.crt', cert_path + 'tls.key')
-                logger.info('Starting flask http port at http://0.0.0.0:{}'.format(port))
+                logger.info('Starting flask https port at http://0.0.0.0:{}'.format(port))
                 app.run('0.0.0.0', port, ssl_context=context)
             else:
                 port = self.config['prometheus'].get('port')
