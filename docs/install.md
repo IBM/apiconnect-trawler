@@ -98,3 +98,5 @@ spec:
           name: trawler-client-certificate
         insecureSkipVerify: false
 ```
+
+Enabling MTLS will cause flask to output a warning that the WSGI server is not to be used for production, however given exposing metrics to prometheus is a single client to the server and used within the cluster this shouldn't be a cause for concern. Also the [http.server](https://docs.python.org/3/library/http.server.html#http.server.HTTPServer) library used within the official prometheus_client has the same warning in it's documentation.
