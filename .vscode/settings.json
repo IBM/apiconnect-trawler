@@ -1,0 +1,6 @@
+{
+    "python.linting.pylamaEnabled": false,
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    "git.alwaysSignOff": true
+}
