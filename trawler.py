@@ -12,18 +12,12 @@ from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
 from watch_pods import Watcher
-from prometheus_client import start_http_server, Gauge, Counter, make_wsgi_app
+from prometheus_client import start_http_server
 import metrics_graphite
-from flask import Flask
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-import ssl
+from prometheus_client import Gauge, Counter
 
 
 logger = alog.use_channel("trawler")
-app = Flask(__name__)
-app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
-    '/metrics': make_wsgi_app()
-})
 
 
 class Trawler(object):
@@ -37,15 +31,12 @@ class Trawler(object):
     # Default to True, but detected unless overridden in config
     use_kubeconfig = True
     # Default path for secrets in container build - override with envvar SECRETS
-    mtls = False
-    # mtls defaults to false. can be set via the ENABLE_MTLS environment variable
     secrets_path = '/app/secrets'
     graphite = None
     gauges = {}
 
-    def __init__(self, config_file=None, ):
+    def __init__(self, config_file=None):
         self.secrets_path = os.getenv('SECRETS', self.secrets_path)
-        self.mtls = os.getenv("ENABLE_MTLS", 'False').lower() in ('true', '1', 't')
         if config_file:
             self.load_config(config_file)
         if 'logging' in self.config:
@@ -58,19 +49,9 @@ class Trawler(object):
             alog.configure(default_level='info', formatter='json')
         self.logger = alog.use_channel("trawler")
         if self.config['prometheus']['enabled']:
-            if self.mtls:
-                cert_path = os.getenv('CERT_PATH')
-                port = self.config['prometheus'].get('port')
-                context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-                context.verify_mode = ssl.CERT_REQUIRED
-                context.load_verify_locations(cert_path + 'ca.crt')
-                context.load_cert_chain(cert_path + 'tls.crt', cert_path + 'tls.key')
-                logger.info('Starting flask https port at http://0.0.0.0:{}'.format(port))
-                app.run('0.0.0.0', port, ssl_context=context)
-            else:
-                port = self.config['prometheus'].get('port')
-                logger.info('Starting prometheus http port at http://0.0.0.0:{}'.format(port))
-                start_http_server(port)
+            port = self.config['prometheus'].get('port')
+            logger.info('Starting prometheus http port at http://0.0.0.0:{}'.format(port))
+            start_http_server(port)
         if self.config['graphite']['enabled']:
             self.graphite = metrics_graphite.instance(self.config['graphite'])
 
@@ -222,7 +203,7 @@ class Trawler(object):
               help="Specifies an alternative config file",
               default=None,
               type=click.Path())
-def cli(config=None, ):
+def cli(config=None):
     """ run main trawler application """
     trawler = Trawler(config)
     trawler.trawl_metrics()

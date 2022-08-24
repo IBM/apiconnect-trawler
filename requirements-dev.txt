@@ -7,5 +7,3 @@ pytest-mock
 pytest_catchlog
 requests-mock
 python-coveralls
-flask
-Werkzeug
