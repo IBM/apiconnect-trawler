@@ -98,8 +98,9 @@ class ManagerNet(object):
             if self.use_kubeconfig:
                 logger.info("Using KUBECONFIG")
                 config.load_kube_config()
-                netv1 = client.NetworkingV1Api()
-                ingresslist = netv1.list_namespaced_ingress(namespace=self.namespace)
+                v1beta = client.ExtensionsV1beta1Api()
+                v1 = client.NetworkV1Api()
+                ingresslist = v1.list_namespaced_ingress(namespace=self.namespace)
                 for ing in ingresslist.items:
                     if ing.metadata.name.endswith('apiconnect-api') or ing.metadata.name.endswith('platform-api'):
                         logger.info("Identified ingress host: {}".format(ing.spec.rules[0].host))
