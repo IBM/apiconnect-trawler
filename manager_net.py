@@ -1,3 +1,4 @@
+from multiprocessing import connection
 from xmlrpc.client import Boolean
 import requests
 import json
@@ -64,9 +65,6 @@ class ManagerNet(object):
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
-        self.version = Gauge('apiconnect_build_info',
-                             "A metric with a constant '1' value labeled with API Connect version details",
-                             ["version", "juhu_release"])
         self.hostname = self.find_hostname()
         logger.debug("Hostname found is {}".format(self.hostname))
         self.trawler = trawler
@@ -129,44 +127,77 @@ class ManagerNet(object):
             logger.exception(e)
 
     def get_webhook_status(self):
-        logger.info("Getting data from API Manager")
-        url = "https://{}/api/cloud/webhooks".format(self.hostname)
-        response = requests.get(
-            url=url,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {}".format(self.token),
-            },
-            verify=False
-        )
-        if response.status_code == 200:
-            for result in response.json()['results']:
-              logger.info("{name}\t{state}\t{scope}".format(**result))
-              self.trawler.set_gauge(
-                'manager', 
-                'webhook_status',
-                1,
-                labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
+        logger.info("Getting webhook data from API Manager")
+        try:
+            url = "https://{}/api/cloud/webhooks".format(self.hostname)
+            response = requests.get(
+                url=url,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token),
+                },
+                verify=False
+            )
+            if response.status_code == 200:
+                for result in response.json()['results']:
+                    logger.info("{name}\t{state}\t{scope}".format(**result))
+                    self.trawler.set_gauge(
+                        'manager', 
+                        'webhook_status',
+                        1,
+                        labels={'webhook_scope':result['scope'], 'webhook_name':result['name'], 'webhook_state':result['state']})
+        except requests.client.ConnectionError as connection_error:
+            logger.exception(connection_error)
 
-    def get_gateways(self, availability_zone = 'availability-zone-default'):
-        logging.info("Getting data from API Manager")
-        url = "https://{}/api/orgs/admin/availability-zones/{}/gateway-services".format(self.hostname, availability_zone)
-        response = requests.get(
-            url=url,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": "Bearer {}".format(self.token),
-            },
-            verify=False
-        )
-        if response.status_code == 200:
-            return response.json()['results']
+    @alog.timed_function(logger.trace)
+    def get_gateways(self, availability_zone='availability-zone-default'):
+        logging.info("Getting gateway data from API Manager")
+        try:
+            url = "https://{}/api/orgs/admin/availability-zones/{}/gateway-services".format(self.hostname, availability_zone)
+            response = requests.get(
+                url=url,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token),
+                },
+                verify=False
+            )
+            if response.status_code == 200:
+                return response.json()['results']
+        except requests.client.ConnectionError as connection_error:
+            logger.exception(connection_error)
+
+    @alog.timed_function(logger.trace)
+    def get_topology_info(self):
+        logger.info("Getting topology data from API Manager")
+        try:
+            url = "https://{}/api/cloud/topology".format(self.hostname)
+            response = requests.get(
+                url=url,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer {}".format(self.token),
+                },
+                verify=False
+            )
+            if response.status_code == 200:
+                self.data = response.json()
+                logger.debug(self.data)
+                self.data_time = int(time.time())
+                logger.info("Caching data - time = {}".format(self.data_time))
+        except requests.ConnectionError as connection_error:
+            logger.exception(connection_error)
 
     @alog.timed_function(logger.trace)
     def fish(self):
         """ main metrics gathering """
+        self.version = Gauge('apiconnect_build_info',
+                             "A metric with a constant '1' value labeled with API Connect version details",
+                             ["version", "juhu_release"])
+
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
             return
@@ -179,22 +210,7 @@ class ManagerNet(object):
 
         if self.token:
             if (data_age > self.max_frequency):
-                logger.info("Getting data from API Manager")
-                url = "https://{}/api/cloud/topology".format(self.hostname)
-                response = requests.get(
-                    url=url,
-                    headers={
-                        "Accept": "application/json",
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer {}".format(self.token),
-                    },
-                    verify=False
-                )
-                if response.status_code == 200:
-                    self.data = response.json()
-                    logger.debug(self.data)
-                    self.data_time = int(time.time())
-                    logger.info("Caching data - time = {}".format(self.data_time))
+                self.get_topology_info()
             else:
                 logger.info("Using cached data")
                 logger.debug(self.data)
@@ -211,11 +227,11 @@ class ManagerNet(object):
                             self.process_org_metrics(org['name'], catalog['name'])
         self.get_webhook_status()
 
-
+    @alog.timed_function(logger.trace)
     def process_org_metrics(self, org_name, catalog_name):
         """ process metrics for a specific catalog """
         if self.token:
-            logger.info("Getting data for {}:{} from API Manager".format(org_name, catalog_name))
+            logger.info("Getting org data for {}:{} from API Manager".format(org_name, catalog_name))
             url = "https://{}/api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)".format(self.hostname, org_name, catalog_name)
             response = requests.get(
                 url=url,
@@ -256,8 +272,6 @@ class ManagerNet(object):
                 logger.error(response.text)
         else:
             logger.error("Not retrieving metrics as no apim token")
-
-
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
