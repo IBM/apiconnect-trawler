@@ -261,6 +261,7 @@ def test_datapower_instance_api_test(caplog, mocker):
             'datapower_invoke_api_test_status_total', 
             labels={"pod": "myDp", "namespace": "namespace", "code": "200"})
 
+
 def test_manager_fishing_error(mocker, caplog):
     caplog.set_level(logging.INFO)
     mocker.patch('kubernetes.config.load_incluster_config')
@@ -271,10 +272,21 @@ def test_manager_fishing_error(mocker, caplog):
     assert client.CoreV1Api.list_namespaced_service.called
     assert 'Error calling kubernetes API' in caplog.text
 
+
+def test_manager_remote_disconnect(mocker):
+    with requests_mock.mock() as m:
+        m.get('https://juhu.local/api/cloud/topology', exc=requests.exceptions.ConnectionError)
+    mocker.patch('kubernetes.config.load_incluster_config')
+    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service', side_effect=kubernetes.client.rest.ApiException)
+    new_net = manager_net.ManagerNet({}, boaty)
+    new_net.hostname = 'juhu.local'
+    new_net.get_topology_info()
+
+
 def test_cert_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_secret')
-    new_net = certs_net.CertsNet({"namespace":"certs"}, boaty)
+    new_net = certs_net.CertsNet({"namespace": "certs"}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_secret.called
@@ -293,11 +305,20 @@ def test_analytics_fishing(mocker):
     mocker.patch('kubernetes.config.load_incluster_config')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service')
     mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_secret')
+    mocker.patch('kubernetes.client.CustomObjectsApi.list_cluster_custom_object',
+                 return_value={
+                     'items': [
+                         {'status': {
+                          'services': {'director':'director-local'},
+                          'serviceClientSecret':'none',
+                          'versions': {'reconciled':'10.0.4.1'}}}]})
+
     new_net = analytics_net.AnalyticsNet({}, boaty)
     new_net.fish()
     assert config.load_incluster_config.called
     assert client.CoreV1Api.list_namespaced_service.called
     assert client.CoreV1Api.list_namespaced_secret.called
+
 
 def test_metrics_graphite_stage():
     metrics = metrics_graphite.instance({"type":"graphite"})
