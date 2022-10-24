@@ -262,18 +262,8 @@ def test_datapower_instance_api_test(caplog, mocker):
             labels={"pod": "myDp", "namespace": "namespace", "code": "200"})
 
 
-def test_manager_fishing_error(mocker, caplog):
+def test_manager_fishing_errors(mocker, caplog):
     caplog.set_level(logging.INFO)
-    mocker.patch('kubernetes.config.load_incluster_config')
-    mocker.patch('kubernetes.client.CoreV1Api.list_namespaced_service', side_effect=kubernetes.client.rest.ApiException)
-    new_net = manager_net.ManagerNet({}, boaty)
-    assert new_net.password == 'not-a-password'
-    assert config.load_incluster_config.called
-    assert client.CoreV1Api.list_namespaced_service.called
-    assert 'Error calling kubernetes API' in caplog.text
-
-
-def test_manager_remote_disconnect(mocker):
     with requests_mock.mock() as m:
         m.get('https://juhu.local/api/cloud/topology', exc=requests.exceptions.ConnectionError)
     mocker.patch('kubernetes.config.load_incluster_config')
@@ -281,6 +271,10 @@ def test_manager_remote_disconnect(mocker):
     new_net = manager_net.ManagerNet({}, boaty)
     new_net.hostname = 'juhu.local'
     new_net.get_topology_info()
+    assert new_net.password == 'not-a-password'
+    assert config.load_incluster_config.called
+    assert client.CoreV1Api.list_namespaced_service.called
+    assert 'Error calling kubernetes API' in caplog.text
 
 
 def test_cert_fishing(mocker):

@@ -45,6 +45,9 @@ class ManagerNet(object):
         self.max_frequency = int(config.get('frequency', 600))
         self.grant_type = config.get('grant_type', 'password')
         self.org_metrics = (config.get('process_org_metrics', 'true') == 'true')
+        self.version = Gauge('apiconnect_build_info',
+                             "A metric with a constant '1' value labeled with API Connect version details",
+                             ["version", "juhu_release"])
         if 'secret' in config:
             # If config points to a secret, then load from that
             # either in this namespace, or the specified one
@@ -192,9 +195,6 @@ class ManagerNet(object):
     @alog.timed_function(logger.trace)
     def fish(self):
         """ main metrics gathering """
-        self.version = Gauge('apiconnect_build_info',
-                             "A metric with a constant '1' value labeled with API Connect version details",
-                             ["version", "juhu_release"])
 
         if self.errored:
             logger.debug("Disabled because a fatal error already occurred")
