@@ -200,6 +200,7 @@ class DataPower():
         self.fetch_data('TCPSummary', 'tcp', '_total')
         self.fetch_data('LogTargetStatus', 'logtarget')
         self.object_counts()
+        self.fetch_document_cache_summary()
         if self.v5c:
             self.fetch_data('WSMAgentStatus', 'wsm')
         # Needs statistics enabled:
@@ -277,6 +278,46 @@ class DataPower():
         except requests.exceptions.RequestException as e:
             logger.info("Failed to get object count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
 
+
+    def fetch_document_cache_summary(self, suffix=''):
+        """ fetch data from a status provider """
+        if self.v5c:
+            provider = "DocumentCachingSummary"
+            key = "XMLManager"
+        else:
+            provider = "APIDocumentCachingSummary"
+            key = "APIGateway"
+        try:
+            logger.debug("Retrieving cache summary")
+            url = "https://{}:{}/mgmt/status/{}/{}".format(
+                self.ip,
+                self.port,
+                self.domain,
+                provider)
+            status = requests.get(url,
+                                  auth=(self.username, self.password),
+                                  verify=False, timeout=1).json()
+            logger.debug(status)
+            data = status.get(provider, {})
+            if type(data) is not list:
+                data = [data]
+            
+            for item in data:
+                try:
+                    name = item[key]['value']
+                    if name in ['webapi', 'webapi-internal', 'apiconnect']:
+                        del item[key]
+                        logger.debug(item)
+                        for key in item:
+                            self.trawler.set_gauge(
+                                'datapower',
+                                "{}.{}.{}{}".format("documentcache", name, key, suffix), item[key], 
+                                pod_name=self.name, labels=self.labels)
+                except KeyError:
+                    logger.warning('Failed to parse response for document cache summary')
+                    logger.info(item)
+        except requests.exceptions.RequestException as e:
+            logger.info("{}: {} (Check rest-mgmt is enabled and you have network connectivity)".format(provider, e.strerror))
 
 
 
