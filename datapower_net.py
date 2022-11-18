@@ -149,6 +149,7 @@ class DataPower():
                                  verify=False,
                                  timeout=1
                                  )
+            logger.trace(state)
             if state.status_code == 200:
                 if state.json()['APIConnectGatewayService'].get('V5CompatibilityMode', 'off') == 'on':
                     self.v5c = True
@@ -283,10 +284,10 @@ class DataPower():
         """ fetch data from a status provider """
         if self.v5c:
             provider = "DocumentCachingSummary"
-            key = "XMLManager"
+            status_key = "XMLManager"
         else:
             provider = "APIDocumentCachingSummary"
-            key = "APIGateway"
+            status_key = "APIGateway"
         try:
             logger.debug("Retrieving cache summary")
             url = "https://{}:{}/mgmt/status/{}/{}".format(
@@ -301,12 +302,11 @@ class DataPower():
             data = status.get(provider, {})
             if type(data) is not list:
                 data = [data]
-            
             for item in data:
                 try:
-                    name = item[key]['value']
+                    name = item[status_key]['value']
                     if name in ['webapi', 'webapi-internal', 'apiconnect']:
-                        del item[key]
+                        del item[status_key]
                         logger.debug(item)
                         for key in item:
                             self.trawler.set_gauge(
