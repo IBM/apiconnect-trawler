@@ -12,6 +12,28 @@ To install trawler, you can make use of the sample yaml files within the [deploy
      - Uncomment servicemonitor.yaml and service.yaml if you are using the prometheus operator model.
  - Set secrets for password values either through base64 encoded values in secret.yaml or through your usual method for managing secrets.
 
+These can either be imported to your cluster directly using `kubectl apply -k .` or to point to as a base for your own kustomize config and overlays with a kustomization.yaml which looks something like this: 
+
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- trawler-secrets.yaml
+
+configMapGenerator:
+- name: trawler
+  behavior: replace
+  files:
+  - config.yaml
+
+bases:
+- github.com/ibm/apiconnect-trawler//deployment?ref=main
+
+namespace: apic-trawler
+
+```
+
 ## API Manager credentials
 
 For the manager_net you will need to provide trawler credentials to make the API Calls - these can either be client_credentials grants or traditional username/password. For this you will need the following permissions:
