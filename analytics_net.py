@@ -39,6 +39,8 @@ class AnalyticsNet(object):
             self.find_hostname_and_certs()
         else:
             self.find_hostname_and_certs()
+        logger.trace("Hostname is %s", self.hostname)
+        logger.trace("Certificate file is %s", self.certificates.name)
 
     def load_certs_from_secret(self, v1, secret_name):
         # Get certificates to communicate with analytics
@@ -58,10 +60,11 @@ class AnalyticsNet(object):
             # Initialise the k8s API
             if self.use_kubeconfig:
                 config.load_kube_config()
+                logger.info("Not in cluster, so will assume port-forward")
                 v1 = client.CoreV1Api()
             else:
                 config.load_incluster_config()
-                logger.info("In cluster, so looking for analytics-storage service")
+                logger.info("In cluster, so looking for analytics services")
                 v1 = client.CoreV1Api()
             # Identify analytics version
             customObjectsApi = client.CustomObjectsApi()
@@ -72,7 +75,7 @@ class AnalyticsNet(object):
             self.version = analytics_clusters['items'][0]['status']['versions']['reconciled']
             if self.version > '10.0.5':
                 director_svc = analytics_clusters['items'][0]['status']['services']['director']
-                self.hostname = '{}.{}.svc:3009'.format(self.namespace, director_svc)
+                self.hostname = '{}.{}.svc:3009'.format(director_svc, self.namespace)
                 if self.use_kubeconfig:
                     self.hostname = 'localhost:3009'
                 self.load_certs_from_secret(v1, analytics_clusters['items'][0]['status']['serviceClientSecret'])
