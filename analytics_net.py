@@ -39,8 +39,6 @@ class AnalyticsNet(object):
             self.find_hostname_and_certs()
         else:
             self.find_hostname_and_certs()
-        logger.trace("Hostname is %s", self.hostname)
-        logger.trace("Certificate file is %s", self.certificates.name)
 
     def load_certs_from_secret(self, v1, secret_name):
         # Get certificates to communicate with analytics
@@ -110,6 +108,7 @@ class AnalyticsNet(object):
                 if cert:
                     combined = key + "\n".encode() + cert
                     self.certificates = tempfile.NamedTemporaryFile('w', delete=False)
+                    logger.trace("Certificate file is %s", self.certificates.name)
                     with self.certificates as certfile:
                         certfile.write(combined.decode())
 

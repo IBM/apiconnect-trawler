@@ -7,10 +7,8 @@ import threading
 import ssl
 import alog
 import click
-from flask import Flask
 from prometheus_client import start_http_server, Gauge, Counter, make_wsgi_app
 import yaml
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from certs_net import CertsNet
 from apiconnect_net import APIConnectNet
 from datapower_net import DataPowerNet

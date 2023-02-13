@@ -42,7 +42,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        SECRETS=test-assets coverage run --source . -m py.test
+        SECRETS=test-assets coverage run --source . -m py.test -Werror -p no:unraisableexception
         coverage report
 
   # Push image to GitHub Packages.
