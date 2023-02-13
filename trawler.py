@@ -1,20 +1,20 @@
 #!/usr/bin/python3
+""" Main trawler application """
 
 import os
 import time
-import alog
 import threading
-import yaml
+import ssl
+import alog
 import click
+from prometheus_client import start_http_server, Gauge, Counter, make_wsgi_app
+import yaml
 from certs_net import CertsNet
 from apiconnect_net import APIConnectNet
 from datapower_net import DataPowerNet
 from manager_net import ManagerNet
 from analytics_net import AnalyticsNet
-from watch_pods import Watcher
-from prometheus_client import start_http_server
 import metrics_graphite
-from prometheus_client import Gauge, Counter
 
 
 logger = alog.use_channel("trawler")
@@ -67,24 +67,24 @@ class Trawler(object):
             # Check for KUBERNETES_SERVICE_HOST to determine if running within kubernetes
             if os.getenv('KUBERNETES_SERVICE_HOST'):
                 self.use_kubeconfig = False
-        self.watcher = Watcher()
 
     def read_secret(self, key):
         """ Helper function read secrets from mounted k8s secrets """
         try:
-            with open("{}/{}".format(self.secrets_path, key), 'r') as secret:
+            with open("{}/{}".format(self.secrets_path, key), 'r', encoding='utf-8') as secret:
                 value = secret.read().rstrip()
             return value
-        except FileNotFoundError as e:
-            logger.exception(e)
+        except FileNotFoundError as not_found_exception:
+            logger.exception(not_found_exception)
             return None
 
     def load_config(self, config_file):
+        """ Load trawler config """
         try:
-            with open(config_file, 'r') as config_yaml:
+            with open(config_file, 'r', encoding='utf-8') as config_yaml:
                 self.config = yaml.safe_load(config_yaml)
-        except FileNotFoundError as e:
-            logger.exception(e)
+        except FileNotFoundError as not_found_exception:
+            logger.exception(not_found_exception)
             exit(2)
 
     def set_gauge(self, component, target_name, value, pod_name=None, labels=None):
@@ -95,14 +95,15 @@ class Trawler(object):
             labels['pod'] = pod_name
         if 'labels' in self.config['prometheus']:
             labels = {**self.config['prometheus']['labels'], **labels}
-        logger.debug("Entering set_gauge - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug("Entering set_gauge - params: (%s, %s, %s, %s)",
+                     component, target_name, value, pod_name)
         logger.debug(labels)
-        if type(value) is float or type(value) is int:
+        if isinstance(value, (float, int)):
             target_name = target_name.replace('-', '_')
             if self.config['prometheus']['enabled']:
                 prometheus_target = "{}_{}".format(component, target_name.replace('.', '_'))
                 if prometheus_target not in self.gauges:
-                    logger.info("Creating gauge {}".format(prometheus_target))
+                    logger.info("Creating gauge %s", prometheus_target)
                     if labels:
                         self.gauges[prometheus_target] = Gauge(
                             prometheus_target,
@@ -136,14 +137,15 @@ class Trawler(object):
             labels['pod'] = pod_name
         if 'labels' in self.config['prometheus']:
             labels = {**self.config['prometheus']['labels'], **labels}
-        logger.debug("Entering inc_counter - params: ({}, {}, {}, {})".format(component, target_name, value, pod_name))
+        logger.debug("Entering inc_counter - params: (%s, %s, %s, %s)",
+                     component, target_name, value, pod_name)
         logger.debug(labels)
-        if type(value) is float or type(value) is int:
+        if isinstance(value, (float, int)):
             target_name = target_name.replace('-', '_')
             if self.config['prometheus']['enabled']:
                 prometheus_target = "{}_{}".format(component, target_name.replace('.', '_'))
                 if prometheus_target not in self.gauges:
-                    logger.info("Creating counter {}".format(prometheus_target))
+                    logger.info("Creating counter %s", prometheus_target)
                     if labels:
                         self.gauges[prometheus_target] = Counter(
                             prometheus_target,
@@ -166,27 +168,29 @@ class Trawler(object):
                     metric_name = "{}.{}".format(component, target_name)
                 self.graphite.stage(metric_name, value)
 
+    def is_enabled(self, net_name):
+        """ is net in config and enabled """
+        if net_name in self.config['nets']:
+            if self.config['nets']['certs'].get('enabled', True):
+                return True
+        return False
+
     @alog.timed_function(logger.trace)
     def trawl_metrics(self):
         """ Main loop to trawl for metrics """
         # Initialise
         logger.info("Laying nets...")
         nets = []
-        if 'certs' in self.config['nets'] and self.config['nets']['certs'].get('enabled', True):
+        if self.is_enabled('certs'):
             nets.append(CertsNet(self.config['nets']['certs'], self))
-        if 'apiconnect' in self.config['nets'] and self.config['nets']['apiconnect'].get('enabled', True):
+        if self.is_enabled('apiconnect'):
             nets.append(APIConnectNet(self.config['nets']['apiconnect'], self))
-        if 'datapower' in self.config['nets'] and self.config['nets']['datapower'].get('enabled', True):
+        if self.is_enabled('datapower'):
             nets.append(DataPowerNet(self.config['nets']['datapower'], self))
-        if 'manager' in self.config['nets'] and self.config['nets']['manager'].get('enabled', True):
+        if self.is_enabled('manager'):
             nets.append(ManagerNet(self.config['nets']['manager'], self))
-        if 'analytics' in self.config['nets'] and self.config['nets']['analytics'].get('enabled', True):
+        if self.is_enabled('analytics'):
             nets.append(AnalyticsNet(self.config['nets']['analytics'], self))
-
-        # Start thread to watch if needed (nets need to call watcher.register)
-        if self.watcher.enabled:
-            watchThread = threading.Thread(target=self.watcher.watch_pods, daemon=True)
-            watchThread.start()
 
         while True:
             logger.info("Trawling for metrics...")
