@@ -98,7 +98,6 @@ class ManagerNet(object):
             if self.use_kubeconfig:
                 logger.info("Using KUBECONFIG")
                 config.load_kube_config()
-                v1beta = client.ExtensionsV1beta1Api()
                 v1 = client.NetworkV1Api()
                 ingresslist = v1.list_namespaced_ingress(namespace=self.namespace)
                 for ing in ingresslist.items:
