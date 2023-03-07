@@ -171,7 +171,7 @@ class Trawler(object):
     def is_enabled(self, net_name):
         """ is net in config and enabled """
         if net_name in self.config['nets']:
-            if self.config['nets']['certs'].get('enabled', True):
+            if self.config['nets'][net_name].get('enabled', True):
                 return True
         return False
 
