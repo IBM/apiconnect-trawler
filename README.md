@@ -33,6 +33,7 @@ logging:
 nets:
   datapower:
     enabled: true
+    timeout: 5 
     username: trawler-monitor
     namespace: apic-gateway
   product:
