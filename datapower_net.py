@@ -125,7 +125,7 @@ class DataPower():
     api_tests = None
     labels = {}
 
-    def __init__(self, ip, port, name, namespace, username, password, trawler, timeout=1, api_tests=None):
+    def __init__(self, ip, port, name, namespace, username, password, trawler, api_tests=None, timeout=1):
         self.ip = ip
         self.port = port
         self.name = name
