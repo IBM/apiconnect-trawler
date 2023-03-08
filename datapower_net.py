@@ -18,6 +18,7 @@ class DataPowerNet():
     password = None
     use_kubeconfig = False
     items = {}
+    timeout = 1
     api_tests = None
 
     def __init__(self, config, trawler):
@@ -28,9 +29,10 @@ class DataPowerNet():
         self.namespace = config.get('namespace', None)
         # Datapower username to use for REST calls
         self.username = config.get('username', 'admin')
+        self.timeout = config.get('timeout', 1)
         self.secret = config.get('secret', 'gateway-admin-secret')
         api_test_config = config.get('api_tests', None)
-        if api_test_config and api_test_config['enabled'] == True:
+        if api_test_config and api_test_config['enabled'] is True:
             self.api_tests = api_test_config['apis']
         # Load password from secret `datapower_password`
         try:
@@ -119,16 +121,18 @@ class DataPower():
     port = 5554
     apiPort = 9443
     trawler = None
+    timeout = 1
     api_tests = None
     labels = {}
 
-    def __init__(self, ip, port, name, namespace, username, password, trawler, api_tests=None):
+    def __init__(self, ip, port, name, namespace, username, password, trawler, timeout=1, api_tests=None):
         self.ip = ip
         self.port = port
         self.name = name
         self.namespace = namespace
         self.username = username
         self.password = password
+        self.timeout = timeout
         self.get_info()
         self.trawler = trawler
         self.api_tests = api_tests
@@ -147,7 +151,7 @@ class DataPower():
             state = requests.get(url,
                                  auth=(self.username, self.password),
                                  verify=False,
-                                 timeout=1
+                                 timeout=self.timeout
                                  )
             logger.trace(state)
             if state.status_code == 200:
@@ -175,7 +179,7 @@ class DataPower():
             state = requests.get(url,
                                  auth=(self.username, self.password),
                                  verify=False,
-                                 timeout=1
+                                 timeout=self.timeout
                                  )
             logger.trace(state.text)
             if state.status_code == 200:
@@ -223,7 +227,7 @@ class DataPower():
                 provider)
             status = requests.get(url,
                                 auth=(self.username, self.password),
-                                verify=False, timeout=1).json()
+                                verify=False, timeout=self.timeout).json()
             logger.debug(status)
             data = status.get(provider, {})
             labels = self.labels
@@ -255,27 +259,21 @@ class DataPower():
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
     def object_counts(self):
         """ Count objects within datapower domain """
-        logger.info("Processing status provider ObjectStatus")
+        logger.info("Processing status provider ObjectInstanceCounts")
         try:
-            url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
+            url = "https://{}:{}/mgmt/status/{}/ObjectInstanceCounts".format(
                 self.ip,
                 self.port,
                 self.domain)
             status = requests.get(url,
-                                auth=(self.username, self.password),
-                                verify=False, timeout=1).json()
+                                  auth=(self.username, self.password),
+                                  verify=False,
+                                  timeout=self.timeout).json()
             logger.debug(status)
-            data = status.get('ObjectStatus', [])
-            counts = {}
+            data = status.get('ObjectInstanceCounts', [])
             for item in data:
-                if item['Class'] in counts:
-                    counts[item['Class']] += 1
-                else:
-                    counts[item['Class']] = 1
-            for item_class in counts:
-                self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name, labels=self.labels)
+                self.trawler.set_gauge('datapower', "{}_total".format(item['Class']), item['Count'], pod_name=self.name, labels=self.labels)
 
-            logger.debug(counts)
         except requests.exceptions.RequestException as e:
             logger.info("Failed to get object count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
 
@@ -297,7 +295,7 @@ class DataPower():
                 provider)
             status = requests.get(url,
                                   auth=(self.username, self.password),
-                                  verify=False, timeout=1).json()
+                                  verify=False, timeout=self.timeout).json()
             logger.debug(status)
             data = status.get(provider, {})
             if type(data) is not list:
@@ -340,7 +338,7 @@ class DataPower():
             self.domain)
         status = requests.get(url,
                               auth=(self.username, self.password),
-                              verify=False, timeout=1).json()
+                              verify=False, timeout=self.timeout).json()
         logger.debug(status)
 
         for entry in status["GatewayPeeringStatus"]:
@@ -400,6 +398,7 @@ class DataPower():
                 "invoke_api_{}_status_total".format(api['name']),
                 0,
                 pod_name=self.name, labels={**status_labels, **self.labels})
+
 
 if __name__ == "__main__":
     net = DataPowerNet()
