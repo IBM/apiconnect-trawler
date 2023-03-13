@@ -256,7 +256,7 @@ class DataPower():
         except requests.exceptions.RequestException as e:
             logger.info("{}: {} (Check rest-mgmt is enabled and you have network connectivity)".format(provider, e.strerror))
 
-# https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus
+# https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectInstanceCounts
     def object_counts(self):
         """ Count objects within datapower domain """
         logger.info("Processing status provider ObjectInstanceCounts")
