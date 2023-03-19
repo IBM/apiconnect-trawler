@@ -80,6 +80,7 @@ class DataPowerNet():
             for i in pods:
                 # Use default port of 5554 if not annotated
                 port = i.metadata.annotations.get('restPort', 5554)
+                version = i.metadata.annotations.get('productVersion', '0')
                 if self.use_kubeconfig:
                     ip = '127.0.0.1'
                 else:
@@ -98,7 +99,8 @@ class DataPowerNet():
                         username=self.username,
                         password=password,
                         trawler=self.trawler,
-                        api_tests=self.api_tests
+                        api_tests=self.api_tests,
+                        version=version
                         )
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
@@ -122,10 +124,11 @@ class DataPower():
     apiPort = 9443
     trawler = None
     timeout = 1
+    version = '0'
     api_tests = None
     labels = {}
 
-    def __init__(self, ip, port, name, namespace, username, password, trawler, api_tests=None, timeout=1):
+    def __init__(self, ip, port, name, namespace, username, password, trawler, api_tests=None, timeout=1, version='0'):
         self.ip = ip
         self.port = port
         self.name = name
@@ -136,6 +139,7 @@ class DataPower():
         self.get_info()
         self.trawler = trawler
         self.api_tests = api_tests
+        self.version = version
         self.are_statistics_enabled()
         self.labels = {"namespace": self.namespace}
         logger.info('DataPower {} {} initialised at {}:{}'.format(self.name, self.v5c, self.ip, self.port))
@@ -259,23 +263,49 @@ class DataPower():
 # https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectInstanceCounts
     def object_counts(self):
         """ Count objects within datapower domain """
-        logger.info("Processing status provider ObjectInstanceCounts")
-        try:
-            url = "https://{}:{}/mgmt/status/{}/ObjectInstanceCounts".format(
-                self.ip,
-                self.port,
-                self.domain)
-            status = requests.get(url,
-                                  auth=(self.username, self.password),
-                                  verify=False,
-                                  timeout=self.timeout).json()
-            logger.debug(status)
-            data = status.get('ObjectInstanceCounts', [])
-            for item in data:
-                self.trawler.set_gauge('datapower', "{}_total".format(item['Class']), item['Count'], pod_name=self.name, labels=self.labels)
+        if self.version > '10.5.0.0':
+            # Supports ObjectInstanceCounts - much quicker...
+            logger.info("Processing status provider ObjectInstanceCounts")
+            try:
+                url = "https://{}:{}/mgmt/status/{}/ObjectInstanceCounts".format(
+                    self.ip,
+                    self.port,
+                    self.domain)
+                status = requests.get(url,
+                                    auth=(self.username, self.password),
+                                    verify=False,
+                                    timeout=self.timeout).json()
+                logger.debug(status)
+                data = status.get('ObjectInstanceCounts', [])
+                for item in data:
+                    self.trawler.set_gauge('datapower', "{}_total".format(item['Class']), item['Count'], pod_name=self.name, labels=self.labels)
 
-        except requests.exceptions.RequestException as e:
-            logger.info("Failed to get object count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
+            except requests.exceptions.RequestException as e:
+                logger.info("Failed to get object instance count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
+        else:
+            logger.info("Processing status provider ObjectStatus")
+            try:
+                url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
+                    self.ip,
+                    self.port,
+                    self.domain)
+                status = requests.get(url,
+                                    auth=(self.username, self.password),
+                                    verify=False, timeout=self.timeout).json()
+                logger.debug(status)
+                data = status.get('ObjectStatus', [])
+                counts = {}
+                for item in data:
+                    if item['Class'] in counts:
+                        counts[item['Class']] += 1
+                    else:
+                        counts[item['Class']] = 1
+                for item_class in counts:
+                    self.trawler.set_gauge('datapower', "{}_total".format(item_class), counts[item_class], pod_name=self.name, labels=self.labels)
+
+                logger.debug(counts)
+            except requests.exceptions.RequestException as e:
+                logger.info("Failed to get object status: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
 
 
     def fetch_document_cache_summary(self, suffix=''):
