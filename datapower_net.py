@@ -81,6 +81,7 @@ class DataPowerNet():
                 # Use default port of 5554 if not annotated
                 port = i.metadata.annotations.get('restPort', 5554)
                 version = i.metadata.annotations.get('productVersion', '0')
+                logger.info("Version is %s", version)
                 if self.use_kubeconfig:
                     ip = '127.0.0.1'
                 else:
@@ -101,13 +102,12 @@ class DataPowerNet():
                         trawler=self.trawler,
                         api_tests=self.api_tests,
                         version=version
-                        )
+                    )
                 self.items[dp_key].gather_metrics()
                 logger.info("DataPowers in list: {}".format(len(pods)))
         except client.rest.ApiException as exception:
             logger.error("Error calling kubernetes API")
             logger.debug(exception)
-
 
 
 class DataPower():
@@ -265,7 +265,7 @@ class DataPower():
         """ Count objects within datapower domain """
         if self.version > '10.5.0.0':
             # Supports ObjectInstanceCounts - much quicker...
-            logger.info("Processing status provider ObjectInstanceCounts")
+            logger.info("Processing status provider ObjectInstanceCounts (DP version in %s)", self.version)
             try:
                 url = "https://{}:{}/mgmt/status/{}/ObjectInstanceCounts".format(
                     self.ip,
@@ -283,7 +283,7 @@ class DataPower():
             except requests.exceptions.RequestException as e:
                 logger.info("Failed to get object instance count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
         else:
-            logger.info("Processing status provider ObjectStatus")
+            logger.info("Processing status provider ObjectStatus (DP version is %s)", self.version)
             try:
                 url = "https://{}:{}/mgmt/status/{}/ObjectStatus".format(
                     self.ip,
