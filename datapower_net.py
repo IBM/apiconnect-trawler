@@ -101,6 +101,7 @@ class DataPowerNet():
                         password=password,
                         trawler=self.trawler,
                         api_tests=self.api_tests,
+                        timeout=self.timeout,
                         version=version
                     )
                 self.items[dp_key].gather_metrics()
