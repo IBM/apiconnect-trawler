@@ -45,14 +45,8 @@ nets:
  - frequency: number of seconds to wait between trawling for metrics
  - use_kubeconfig: use the current kubeconfig from the environment instead looking at _in cluster_ config
  - logging: set the default logging level, output format and filters for specific components 
-**Prometheus settings:**
-The port specified in the prometheus block needs to match the prometheus annotations on the deployed trawler pod for prometheus to discover the metrics exposed.  
 
-**Individual nets**
-Each of the different areas of metrics is handled by a separate net, which can be enabled/disabled independently.  The configuration for these is currently a pointer to the namespace the relevant subsystem is deployed into and a username to use.  Passwords are loaded separately from the following values in a kubernetes secret mounted at the default location of `/app/secrets` - which can be overridden using the SECRETS environment variable:
-
- - datapower_password - password to use with the datapower net for accessing the [DataPower REST management](https://www.ibm.com/support/knowledgecenter/SS9H2Y_7.7.0/com.ibm.dp.doc/restmgtinterface.html) interface. 
- - cloudmanager_password - password to use with the manager net to retreive API Connect usage metrics.
+[Detailed configuration options](docs/config.md)
 
 ## Issues, enhancements and pull requests
 
@@ -62,6 +56,7 @@ Feature requests and issue reports are welcome as [github issues](https://github
 
  - [Metrics gathered by trawler](docs/metrics.md)
  - [Install](docs/install.md)
+ - [Configuring Trawler](docs/config.md)
  - [Frequently asked questions](docs/faq.md)
 
 

@@ -65,3 +65,12 @@ Alternatively you can adjust the deployment of the trawler pod to match the sear
 In this case prometheus-operator is configured to look for serviceMonitors set up with the release `prom-operator`.
 
 For more details on the prometheus operator model see https://coreos.com/operators/prometheus/docs/latest/user-guides/getting-started.html
+
+## Scraping Trawler metrics with Instana
+
+If you are using Instana you can configure the Instana agent to scrape metrics from Trawler using the prometheus plugin options.  An example agent config would look something like this:
+
+          com.instana.plugin.prometheus:
+            customMetricSources:
+            - url: '/'                       # metrics endpoint, the IP and port are auto-discovered
+              metricNameIncludeRegex: '.*'   # regular expression to filter metrics 
