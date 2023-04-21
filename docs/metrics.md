@@ -43,7 +43,6 @@ The kind of metrics that trawler collects are currently as follows and are provi
 | Invoke test API (defined in config) created | datapower_invoke_api_{name}_status_created |
 
 
-
 ### Analytics subsystem
 | Description   | metric name |
 | ------------- |-------------|
@@ -52,3 +51,9 @@ The kind of metrics that trawler collects are currently as follows and are provi
 | Number of shards in states - active, relocating, initialising, unassigned | analytics_{state}_shards_total|
 | Number of pending tasks | analytics_pending_tasks_total|
 | API Calls in last hour by status code | analytics_apicalls_lasthour_2xx, 4xx etc|
+
+
+### Cert monitoring
+| Description   | metric name |
+| ------------- |-------------|
+| Certificate seconds remaining | cert_remaining_seconds |

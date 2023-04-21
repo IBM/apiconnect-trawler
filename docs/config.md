@@ -19,10 +19,12 @@ nets:
     timeout: 5 
     username: trawler-monitor
     namespace: apic-gateway
-  product:
+  manager:
     enabled: true
     username: trawler-monitor
     namespace: apic-management
+  certs:
+    enabled: true
 ```
 
 ## General trawler settings:
@@ -104,3 +106,10 @@ Sample config:
         namespace: apic
 
  - namespace: namespace the analytics subsystem is deployed in
+
+### Certs net
+
+Sample config:
+
+      certs:
+        enabled: true
