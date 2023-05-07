@@ -8,7 +8,7 @@ logger = alog.use_channel("apiconnect")
 # /mgmt/status/apiconnect/TCPSummary
 
 
-class APIConnectNet(Object):
+class APIConnectNet(object):
     namespace = 'apic-management'
     use_kubeconfig = False
     trawler = None
@@ -37,6 +37,7 @@ class APIConnectNet(Object):
             customObjectsApi = client.CustomObjectsApi()
             customResources = [
                 {"group": "management.apiconnect.ibm.com", "plural": "managementclusters"},
+                {"group": "analytics.apiconnect.ibm.com", "plural": "analyticsclusters"},
                 {"group": "gateway.apiconnect.ibm.com", "plural": "gatewayclusters"},
                 {"group": "portal.apiconnect.ibm.com", "plural": "portalclusters"},
             ]
