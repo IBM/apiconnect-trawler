@@ -8,7 +8,7 @@ logger = alog.use_channel("apiconnect")
 # /mgmt/status/apiconnect/TCPSummary
 
 
-class APIConnectNet(object):
+class APIConnectNet(Object):
     namespace = 'apic-management'
     use_kubeconfig = False
     trawler = None
@@ -65,10 +65,9 @@ class APIConnectNet(object):
                         self.trawler.set_gauge(
                             'apiconnect',
                             "{}_status".format(customResource['plural']),
-                            1,
+                            1 if condition['status'] == "true" else 0,
                             labels={
                                 "type": condition['type'],
-                                "status": condition['status'],
                                 "name": item['metadata']['name'],
                                 "namespace": item['metadata']['namespace'],
                             })
