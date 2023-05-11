@@ -49,31 +49,37 @@ class APIConnectNet(object):
                     customResource['plural'])
                 for item in api_response['items']:
                     version = item['status']['versions']['reconciled']
+                    pending_state = False
                     for condition in item['status']['conditions']:
+                        if condition['type'] == 'Pending' and condition['status'] == "True":
+                            pending_state = True
+
                         if condition['type'] == 'Ready':
-                            if condition['status']:
+                            if condition['status'] == "True":
                                 health = 1
                             else:
                                 health = 0
-                            self.trawler.set_gauge(
-                                self.health_prefix,
-                                "health_status",
-                                health,
-                                labels={
-                                    "component": "{}_{}".format(customResource['plural'][:-1], item['metadata']['name']),
-                                    "version": version,
-                                    **self.health_label
-                                })
 
                         self.trawler.set_gauge(
                             'apiconnect',
                             "{}_status".format(customResource['plural']),
-                            1 if condition['status'] else 0,
+                            1 if condition['status'] == "True" else 0,
                             labels={
                                 "type": condition['type'],
                                 "name": item['metadata']['name'],
                                 "namespace": item['metadata']['namespace'],
                             })
+                    if not pending_state:
+                        self.trawler.set_gauge(
+                            self.health_prefix,
+                            "health_status",
+                            health,
+                            labels={
+                                "component": "{}_{}".format(customResource['plural'][:-1], item['metadata']['name']),
+                                "version": version,
+                                **self.health_label
+                            })
+
 
             # api_response['status']['conditions']
             # {'lastTransitionTime': '2021-09-30T13:33:10Z', 'message': '', 'reason': 'na', 'status': 'False', 'type': 'Warning'}
