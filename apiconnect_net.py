@@ -59,14 +59,14 @@ class APIConnectNet(object):
                                 "health_status",
                                 health,
                                 labels={
-                                    "component": "{} {}".format(customResource['plural'][:-1], item['metadata']['name']),
+                                    "component": "{}_{}".format(customResource['plural'][:-1], item['metadata']['name']),
                                     **self.health_label
                                 })
 
                         self.trawler.set_gauge(
                             'apiconnect',
                             "{}_status".format(customResource['plural']),
-                            1 if condition['status'] == "true" else 0,
+                            1 if condition['status'] else 0,
                             labels={
                                 "type": condition['type'],
                                 "name": item['metadata']['name'],
