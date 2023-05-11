@@ -48,6 +48,7 @@ class APIConnectNet(object):
                     'v1beta1',
                     customResource['plural'])
                 for item in api_response['items']:
+                    version = item['status']['versions']['reconciled']
                     for condition in item['status']['conditions']:
                         if condition['type'] == 'Ready':
                             if condition['status']:
@@ -60,6 +61,7 @@ class APIConnectNet(object):
                                 health,
                                 labels={
                                     "component": "{}_{}".format(customResource['plural'][:-1], item['metadata']['name']),
+                                    "version": version,
                                     **self.health_label
                                 })
 
