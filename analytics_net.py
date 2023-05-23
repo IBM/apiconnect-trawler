@@ -4,6 +4,7 @@ from kubernetes import client, config
 import urllib3
 import base64
 import requests
+import datetime
 
 urllib3.disable_warnings()
 logger = alog.use_channel("analytics")
@@ -16,11 +17,13 @@ class AnalyticsNet(object):
     token_expires = 0
     max_frequency = 600
     data = {}
+    last_run = False
     data_time = 0
     use_kubeconfig = False
     hostname = None
     trawler = None
     version = "10.0"
+    time_interval = 3600
     certificates = None
     status_map = {"green": 2, "yellow": 1, "red": 0}
 
@@ -32,6 +35,7 @@ class AnalyticsNet(object):
         self.namespace = config.get('namespace', 'default')
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
+        self.time_interval = int(config.get('time_interval', 3600))
         self.trawler = trawler
         if self.use_kubeconfig:
             logger.error("Analytics metrics currently only available in cluster setting localhost:9200 for testing")
@@ -209,9 +213,28 @@ class AnalyticsNet(object):
             self.trawler.set_gauge('analytics', 'unassigned_shards_total', health_obj['unassigned_shards'])
             self.trawler.set_gauge('analytics', 'initializing_shards_total', health_obj['initializing_shards'])
             self.trawler.set_gauge('analytics', 'pending_tasks_total', health_obj['number_of_pending_tasks'])
-            calls_req = requests.get('https://{}/cloud/dashboards/status?timeframe=last1hour'.format(self.hostname), verify=False,
-                                     cert=self.certificates.name)
+            if self.time_interval == 3600:
+                timeframe = 'timeframe=last1hour'
+                metric_name = 'lasthour'
+            elif self.time_interval == 0:
+                # Auto interval
+                if self.last_run:
+                    start_time = self.last_run
+                else:
+                    start_time = datetime.datetime.now()
+                metric_name = 'thisloop'.format(self.time_interval)
+                timeframe = 'start={}'.format(start_time.isoformat('T'))
+                self.last_run = datetime.datetime.now()
 
+            else:
+                now_time = datetime.datetime.now()
+                start_time = now_time - datetime.timedelta(seconds=30)
+                metric_name = 'last{}s'.format(self.time_interval)
+                timeframe = 'start={}'.format(start_time.isoformat('T'))
+            logger.info('https://{}/cloud/dashboards/status?{}'.format(self.hostname, timeframe))
+            calls_req = requests.get('https://{}/cloud/dashboards/status?{}'.format(self.hostname, timeframe), verify=False,
+                                     cert=self.certificates.name)
+            print(calls_req.text)
             summary = calls_req.json()
             summary_output = {'1':0,'2':0,'3':0,'4':0,'5':0}
             total = 0
@@ -220,9 +243,9 @@ class AnalyticsNet(object):
                     summary_output[status['group'][0]] += status['value']
                 total += status['value']
 
-            self.trawler.set_gauge('analytics', 'apicalls_lasthour.total', total)
+            self.trawler.set_gauge('analytics', 'apicalls_{}.total'.format(metric_name), total)
             for status in summary_output:
-                self.trawler.set_gauge('analytics', 'apicalls_lasthour.{}xx'.format(status), summary_output[status])
+                self.trawler.set_gauge('analytics', 'apicalls_{}.{}xx'.format(metric_name, status), summary_output[status])
 
 
     @alog.timed_function(logger.trace)
