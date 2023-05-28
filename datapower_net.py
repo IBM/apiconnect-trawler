@@ -283,6 +283,10 @@ class DataPower():
 
             except requests.exceptions.RequestException as e:
                 logger.info("Failed to get object instance count: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
+            except requests.exceptions.ConnectTimeout:
+                logger.info("Failed to get object count - connect timed out ")
+            except requests.exceptions.ReadTimeout:
+                logger.info("Failed to get object count - read timed out ")
         else:
             logger.info("Processing status provider ObjectStatus (DP version is %s)", self.version)
             try:
@@ -307,6 +311,10 @@ class DataPower():
                 logger.debug(counts)
             except requests.exceptions.RequestException as e:
                 logger.info("Failed to get object status: {} (Check rest-mgmt is enabled and you have network connectivity)".format(e.strerror))
+            except requests.exceptions.ConnectTimeout:
+                logger.info("Failed to get object count - connect timed out ")
+            except requests.exceptions.ReadTimeout:
+                logger.info("Failed to get object count - read timed out ")
 
 
     def fetch_document_cache_summary(self, suffix=''):
