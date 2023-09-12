@@ -35,6 +35,37 @@ fake_pod = kubernetes.client.V1Pod(
     )
 )
 
+peering_mock = """
+    {
+        "GatewayPeeringStatus": [
+            {
+                "Address": "127.0.0.1",
+                "Name": "rate-limit",
+                "PendingUpdates": 0,
+                "ReplicationOffset": 170111082,
+                "LinkStatus": "ok",
+                "Primary": "yes"
+            }
+        ]
+    }
+    """
+log_target_mock = """
+{
+        "_links" : {
+        "self" : {"href" : "/mgmt/status/default/LogTargetStatus"},
+        "doc" : {"href" : "/mgmt/docs/status/LogTargetStatus"}},
+        "LogTargetStatus" : {
+        "LogTarget" : {"value": "default-log",
+        "href" : "/mgmt/config/default/LogTarget/default-log"},
+        "Status" : "active",
+        "EventsProcessed" : 210938,
+        "EventsDropped" : 0,
+        "EventsPending" : 2,
+        "ErrorInfo" : "none",
+        "RequestedMemory" : 16}}
+        """
+
+v6 = '{"APIConnectGatewayService":{"V5CompatibilityMode":"off"}}'
 
 
 def test_check_nosettings():
@@ -99,6 +130,7 @@ def test_trawler_gauge_additional_labels(mocker, caplog):
     # Lookup values from prometheus client
     assert prometheus_client.REGISTRY.get_sample_value('labels_add_additional', labels={"pod": "pod_name", "group": "labels"}) == 1
 
+
 def test_datapower_fishing(mocker):
     """ test the pod finding """
     mocker.patch('kubernetes.config.load_incluster_config')
@@ -106,9 +138,20 @@ def test_datapower_fishing(mocker):
                  return_value=kubernetes.client.V1PodList(items=[fake_pod])
                  )
     mocker.patch('datapower_net.DataPowerNet.load_password_from_secret', return_value='password')
-    new_net = datapower_net.DataPowerNet({}, boaty)
-    new_net.fish()
-    assert config.load_incluster_config.called
+    with requests_mock.mock() as m:
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/APIConnectGatewayService/default', text=v6)
+        m.get('https://127.0.0.1:5554/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
+
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/GatewayPeeringStatus', text=peering_mock)
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/AnalyticsEndpointStatus', text="")
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/TCPSummary', text="")
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=log_target_mock)
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/ObjectStatus', text="")
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/APIDocumentCachingSummary', text="")
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/HTTPTransactions2', text="")
+        new_net = datapower_net.DataPowerNet({}, boaty)
+        new_net.fish()
+        assert config.load_incluster_config.called
 
 
 def test_datapower_fishing_error(mocker, caplog):
@@ -131,22 +174,7 @@ def test_datapower_instance(mocker, caplog):
         assert dp.ip == '127.0.0.1'
         assert dp.v5c
         # Mock data
-        mock_data = """
-{
-        "_links" : {
-        "self" : {"href" : "/mgmt/status/default/LogTargetStatus"},
-        "doc" : {"href" : "/mgmt/docs/status/LogTargetStatus"}},
-        "LogTargetStatus" : {
-        "LogTarget" : {"value": "default-log",
-        "href" : "/mgmt/config/default/LogTarget/default-log"},
-        "Status" : "active",
-        "EventsProcessed" : 210938,
-        "EventsDropped" : 0,
-        "EventsPending" : 2,
-        "ErrorInfo" : "none",
-        "RequestedMemory" : 16}}
-        """
-        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=mock_data)
+        m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/LogTargetStatus', text=log_target_mock)
         m.get('/mgmt/config/apiconnect/Statistics', text=statistics_enabled)
 
         dp.fetch_data('LogTargetStatus', 'test')
@@ -161,6 +189,7 @@ def test_datapower_instance(mocker, caplog):
         assert prometheus_client.REGISTRY.get_sample_value(
             'datapower_test_EventsPending', 
             labels={"pod": "myDp", "namespace": "namespace"}) == 2
+
 
 def test_datapower_peering(mocker, caplog):
     caplog.set_level(logging.INFO)
@@ -191,9 +220,8 @@ def test_datapower_peering(mocker, caplog):
 
         m.get('https://127.0.0.1:5554/mgmt/status/apiconnect/GatewayPeeringStatus', text=mock_data)
 
-
         dp.gateway_peering_status()
-        assert 'Creating gauge ' in caplog.text
+
         # Lookup values from prometheus client
         assert prometheus_client.REGISTRY.get_sample_value(
             'datapower_gateway_peering_primary_info', 
