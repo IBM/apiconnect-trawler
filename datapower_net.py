@@ -211,6 +211,7 @@ class DataPower():
         self.fetch_data('LogTargetStatus', 'logtarget')
         self.object_counts()
         self.fetch_document_cache_summary()
+        self.gateway_peering_status()
         if self.v5c:
             self.fetch_data('WSMAgentStatus', 'wsm')
         # Needs statistics enabled:
@@ -219,7 +220,6 @@ class DataPower():
         if self.api_tests:
             for api in self.api_tests:
                 self.invoke_api(api)
-
 
     def fetch_data(self, provider, label, suffix=''):
         """ fetch data from a status provider """
