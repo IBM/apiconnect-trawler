@@ -21,9 +21,13 @@ class ManagerNet(object):
     username = ''
     password = ''
     hostname = ''
-    client_id = "caa87d9a-8cd7-4686-8b6e-ee2cdc5ee267"
-    client_secret = "3ecff363-7eb3-44be-9e07-6d4386c48b0b"
+    default_client_id = "caa87d9a-8cd7-4686-8b6e-ee2cdc5ee267"
+    default_client_secret = "3ecff363-7eb3-44be-9e07-6d4386c48b0b"
+    client_id = default_client_id
+    client_secret = default_client_secret
     grant_type = 'password'
+    cm_token = None      # Cloud manager access token
+    cm_token_expires = 0 # Cloud manager access token expiration
     token = None
     token_expires = 0
     max_frequency = 600
@@ -43,7 +47,7 @@ class ManagerNet(object):
         self.namespace = config.get('namespace', 'default')
         # Maximum frequency to pull data from APIC
         self.max_frequency = int(config.get('frequency', 600))
-        self.grant_type = config.get('grant_type', 'password')
+        #self.grant_type = config.get('grant_type', 'password')
         self.org_metrics = (config.get('process_org_metrics', 'true') == 'true')
         self.version = Gauge('apiconnect_build_info',
                              "A metric with a constant '1' value labeled with API Connect version details",
@@ -54,7 +58,15 @@ class ManagerNet(object):
             self.load_credentials_from_secret(
                 config.get('secret'),
                 config.get('secret_namespace', self.namespace))
-        else:
+
+        if 'cloud_manager_secret' in config:
+            # If config points to a secret, then load from that
+            # either in this namespace, or the specified one
+            self.load_credentials_from_secret(
+                config.get('cloud_manager_secret' ),
+                config.get('secret_namespace', self.namespace))
+
+        if not 'secret' in config and not 'cloud_manager_secret' in config:
             # Cloud manager username to use for REST calls
             self.username = config.get('username', 'admin')
             if self.grant_type == 'client_credentials':
@@ -63,9 +75,11 @@ class ManagerNet(object):
             else:
                 # Load password from secret `cloudmanager_password`
                 self.password = trawler.read_secret('cloudmanager_password')
+
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
+
         self.hostname = self.find_hostname()
         logger.debug("Hostname found is {}".format(self.hostname))
         self.trawler = trawler
@@ -87,6 +101,7 @@ class ManagerNet(object):
             if 'client_secret' in secrets_response.data:
                 self.client_secret = base64.b64decode(secrets_response.data['client_secret']).decode('utf-8')
                 self.client_id = base64.b64decode(secrets_response.data['client_id']).decode('utf-8')
+                self.grant_type = 'client_credentials'
                 logger.info("Client ID to use is {}, Client Secret length is {}".format(self.client_id, len(self.client_secret)))
 
         except client.rest.ApiException as e:
@@ -128,6 +143,9 @@ class ManagerNet(object):
             logger.exception(e)
 
     def get_webhook_status(self):
+        """Get the webhook data from the API Manager
+           This requires cloud manager access
+        """
         logger.info("Getting webhook data from API Manager")
         try:
             url = "https://{}/api/cloud/webhooks".format(self.hostname)
@@ -136,7 +154,7 @@ class ManagerNet(object):
                 headers={
                     "Accept": "application/json",
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer {}".format(self.token),
+                    "Authorization": "Bearer {}".format(self.cm_token),
                 },
                 verify=False
             )
@@ -201,6 +219,10 @@ class ManagerNet(object):
             return
 
         # Allow 10 seconds to run
+        if self.cm_token_expires - 10 < time.time():
+            self.get_token(self.hostname, cloud_manager=True)
+
+        # Allow 10 seconds to run
         if self.token_expires - 10 < time.time():
             self.get_token(self.hostname)
         data_age = int(time.time()) - self.data_time
@@ -214,6 +236,7 @@ class ManagerNet(object):
                 logger.debug(self.data)
         else:
             logger.warning("No token")
+
         if 'counts' in self.data:
             for object_type in self.data['counts']:
                 logger.debug("Type: {}, Value: {}".format(object_type, self.data['counts'][object_type]))
@@ -223,6 +246,7 @@ class ManagerNet(object):
                     if org['org_type'] != 'admin':
                         for catalog in org['catalogs']['results']:
                             self.process_org_metrics(org['name'], catalog['name'])
+
         self.get_webhook_status()
 
     @alog.timed_function(logger.trace)
@@ -273,7 +297,13 @@ class ManagerNet(object):
 
     # Get the authorization bearer token
     # See https://chrisphillips-cminion.github.io/apiconnect/2019/09/18/GettingoAuthTokenFromAPIC.html
-    def get_token(self, host):
+    def get_token(self, host, cloud_manager=False):
+        """Get the auth token from API Manager or Cloud Manager
+           API Manager requires client credentials, client_id and client_secret
+           Cloud Manager requires username and password, along with the known client_id and client_secret
+           The secret in the config could be either grant_type client_credentials or password,
+           but cloud manager access is always requried to be grant_type password.
+        """
         logger.debug("Getting bearer token")
 
         headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
@@ -281,6 +311,12 @@ class ManagerNet(object):
                 'client_secret': self.client_secret,
                 'grant_type': self.grant_type}
         if self.grant_type == 'password':
+            data['username'] = self.username
+            data['password'] = self.password
+            data['realm'] = 'admin/default-idp-1'
+        if cloud_manager:
+            data['client_id'] = self.default_client_id
+            data['client_secret'] = self.default_client_secret
             data['username'] = self.username
             data['password'] = self.password
             data['realm'] = 'admin/default-idp-1'
@@ -293,10 +329,19 @@ class ManagerNet(object):
             verify=False)
 
         if response.status_code == 200:
+            token_expires = 0
+            token_type = "Token"
             json_data = response.json()
-            self.token = json_data['access_token']
-            self.token_expires = json_data['expires_in'] + time.time()
-            logger.info("Token expires at {} UTC".format(datetime.datetime.utcfromtimestamp(int(self.token_expires))))
+            if cloud_manager:
+                self.cm_token = json_data['access_token']
+                self.cm_token_expires = json_data['expires_in'] + time.time()
+                token_expires = self.cm_token_expires
+                token_type = "Cloud Manager Token"
+            else:
+                self.token = json_data['access_token']
+                self.token_expires = json_data['expires_in'] + time.time()
+                token_expires = self.token_expires
+            logger.info("{} expires at {} UTC".format(token_type, datetime.datetime.utcfromtimestamp(int(token_expires))))
         else:
             logger.error("Disabled manager net as failed to get bearer token: {}".format(response.status_code))
             self.errored = True
