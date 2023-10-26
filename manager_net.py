@@ -20,6 +20,8 @@ class ManagerNet(object):
     namespace = 'apic-management'
     username = ''
     password = ''
+    cm_username = ''
+    cm_password = ''
     hostname = ''
     default_client_id = "caa87d9a-8cd7-4686-8b6e-ee2cdc5ee267"
     default_client_secret = "3ecff363-7eb3-44be-9e07-6d4386c48b0b"
@@ -52,21 +54,15 @@ class ManagerNet(object):
         self.version = Gauge('apiconnect_build_info',
                              "A metric with a constant '1' value labeled with API Connect version details",
                              ["version", "juhu_release"])
+
+        # Provider creds
         if 'secret' in config:
             # If config points to a secret, then load from that
             # either in this namespace, or the specified one
             self.load_credentials_from_secret(
                 config.get('secret'),
                 config.get('secret_namespace', self.namespace))
-
-        if 'cloud_manager_secret' in config:
-            # If config points to a secret, then load from that
-            # either in this namespace, or the specified one
-            self.load_credentials_from_secret(
-                config.get('cloud_manager_secret' ),
-                config.get('secret_namespace', self.namespace))
-
-        if not 'secret' in config and not 'cloud_manager_secret' in config:
+        else:
             # Cloud manager username to use for REST calls
             self.username = config.get('username', 'admin')
             if self.grant_type == 'client_credentials':
@@ -76,6 +72,16 @@ class ManagerNet(object):
                 # Load password from secret `cloudmanager_password`
                 self.password = trawler.read_secret('cloudmanager_password')
 
+        # Cloud manager creds
+        if 'cloud_manager_secret' in config:
+            # If config points to a secret, then load from that
+            # either in this namespace, or the specified one
+            self.load_credentials_from_secret(
+                config.get('cloud_manager_secret' ),
+                config.get('cloud_manager_secret_namespace', self.namespace),
+                cloud_manager = True)
+
+
         if self.password is None:
             # Use out of box default password
             self.password = 'admin'
@@ -84,20 +90,29 @@ class ManagerNet(object):
         logger.debug("Hostname found is {}".format(self.hostname))
         self.trawler = trawler
 
-    def load_credentials_from_secret(self, secret_name, namespace):
+    def load_credentials_from_secret(self, secret_name, namespace, cloud_manager=False):
         try:
             if self.use_kubeconfig:
                 config.load_kube_config()
             else:
                 config.load_incluster_config()
+
             v1 = client.CoreV1Api()
             logger.info("Loading cloud manager credentials from secret {} in namespace {}".format(secret_name, namespace))
             # Get credentials secret
             secrets_response = v1.read_namespaced_secret(name=secret_name, namespace=namespace)
-            if 'password' in secrets_response.data:
-                self.password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
-                self.username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
-                logger.info("Username to use is {}, password length is {}".format(self.username, len(self.password)))
+            if cloud_manager:
+                if 'password' in secrets_response.data:
+                    self.cm_password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
+                    self.cm_username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
+                    logger.info("Username to use is {}, password length is {}".format(self.cm_username, len(self.cm_password)))
+            else:
+                if 'password' in secrets_response.data:
+                    self.password = base64.b64decode(secrets_response.data['password']).decode('utf-8')
+                    self.username = base64.b64decode(secrets_response.data['username']).decode('utf-8')
+                    logger.info("Username to use is {}, password length is {}".format(self.username, len(self.password)))
+
+            # Client secret is not applicable to cloud manager so no test needed
             if 'client_secret' in secrets_response.data:
                 self.client_secret = base64.b64decode(secrets_response.data['client_secret']).decode('utf-8')
                 self.client_id = base64.b64decode(secrets_response.data['client_id']).decode('utf-8')
@@ -317,8 +332,8 @@ class ManagerNet(object):
         if cloud_manager:
             data['client_id'] = self.default_client_id
             data['client_secret'] = self.default_client_secret
-            data['username'] = self.username
-            data['password'] = self.password
+            data['username'] = self.cm_username
+            data['password'] = self.cm_password
             data['realm'] = 'admin/default-idp-1'
 
         url = "https://{}/api/token".format(host)
