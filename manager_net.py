@@ -161,7 +161,9 @@ class ManagerNet(object):
         """Get the webhook data from the API Manager
            This requires cloud manager access
         """
-        logger.info("Getting webhook data from API Manager")
+        if not self.cm_token:
+            logger.debug("No cloud manager token available. Not getting webhook data")
+        logger.info("Getting webhook data from Cloud Manager")
         try:
             url = "https://{}/api/cloud/webhooks".format(self.hostname)
             response = requests.get(
@@ -262,7 +264,8 @@ class ManagerNet(object):
                         for catalog in org['catalogs']['results']:
                             self.process_org_metrics(org['name'], catalog['name'])
 
-        self.get_webhook_status()
+        if self.cm_token:
+            self.get_webhook_status()
 
     @alog.timed_function(logger.trace)
     def process_org_metrics(self, org_name, catalog_name):
