@@ -1,0 +1,11 @@
+# Example configuration file
+prometheus:
+  port: 63512 
+  enabled: true
+nets:
+  datapower:
+    enabled: true
+  manager:
+    enabled: true
+trawler:
+  use_kubeconfig: true

@@ -74,6 +74,12 @@ def test_check_nosettings():
     assert result.exit_code == 2
 
 
+def test_check_config_load_nographite():
+    boaty2 = trawler.Trawler('test-assets/no-graphite.yaml')
+    assert 'prometheus' in boaty2.config
+    assert 'graphite' not in boaty2.config
+
+
 def test_check_config_load():
     boaty.load_config('test-assets/config.yaml')
     assert 'prometheus' in boaty.config
