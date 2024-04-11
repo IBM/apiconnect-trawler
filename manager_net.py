@@ -235,9 +235,10 @@ class ManagerNet(object):
             logger.debug("Disabled because a fatal error already occurred")
             return
 
-        # Allow 10 seconds to run
-        if self.cm_token_expires - 10 < time.time():
-            self.get_token(self.hostname, cloud_manager=True)
+        # Only attempt to get distinct token with cm credentials if password is set
+        if self.cm_password != "":
+            if self.cm_token_expires - 10 < time.time():
+                self.get_token(self.hostname, cloud_manager=True)
 
         # Allow 10 seconds to run
         if self.token_expires - 10 < time.time():
