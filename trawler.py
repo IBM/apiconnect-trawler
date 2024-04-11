@@ -123,12 +123,13 @@ class Trawler(object):
                         self.gauges[prometheus_target].set(value)
                 except ValueError as value_exception:
                     self.logger.exception(value_exception)
-            if self.config['graphite']['enabled']:
-                if pod_name:
-                    metric_name = "{}.{}.{}".format(component, pod_name, target_name)
-                else:
-                    metric_name = "{}.{}".format(component, target_name)
-                self.graphite.stage(metric_name, value)
+            if 'graphite' in self.config:
+                if self.config['graphite']['enabled']:
+                    if pod_name:
+                        metric_name = "{}.{}.{}".format(component, pod_name, target_name)
+                    else:
+                        metric_name = "{}.{}".format(component, target_name)
+                    self.graphite.stage(metric_name, value)
 
     def inc_counter(self, component, target_name, value, pod_name=None, labels=None):
         """ Set or increase prometheus counter """
