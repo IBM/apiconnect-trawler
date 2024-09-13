@@ -7,13 +7,13 @@ on:
   push:
     # Publish `main` as Docker `latest` image.
     branches:
-      - main    
+      - trawler-v1    
     # Publish `v1.2.3` tags as releases.
     tags:
       - v*
   
   pull_request:
-    branches: [ main ]
+    branches: [ trawler-v1 ]
 
 env:
   IMAGE_NAME: ghcr.io/ibm/apiconnect-trawler/trawler
@@ -60,7 +60,7 @@ jobs:
         uses: redhat-actions/buildah-build@v2
         with:
           image: ${{ env.IMAGE_NAME }}
-          tags: latest ${{ github.ref_name }}
+          tags:  ${{ github.ref_name }}
           containerfiles: |
             ./Containerfile
 
@@ -77,4 +77,4 @@ jobs:
         with:
           registry: "ghcr.io"
           image: ${{ steps.build-image.outputs.image }}
-          tags: latest ${{ github.ref_name }}
+          tags:  ${{ github.ref_name }}
