@@ -181,8 +181,33 @@ class AnalyticsNet(object):
         else:
             logger.info("Cluster health failed, so no data and no point querying for calls")
 
+    def analytics_service_status(self):
+        """ Query analytics service status"""
+        error = False
+        try:
+            status = requests.get(
+                "https://{}/cloud/service-status".format(self.hostname),
+                verify=False,
+                cert=self.certificates.name
+            )        
+            status_obj = status.json()
+            logger.debug(status.text)
+        except requests.exceptions.ConnectionError:
+            error = True
+            logger.error("Error getting cluster health")
+            status_obj = {}
+
+        if not error:
+            self.trawler.set_gauge('analytics', 'rollover_status', 1 if status_obj.get('rollover_ok', True) else 0)
+            self.trawler.set_gauge('analytics', 'diskspace_status', 1 if status_obj.get('diskspace_ok', True) else 0)
+            self.trawler.set_gauge('analytics', 'transform_status', 1 if status_obj.get('transform_ok', True) else 0)
+            self.trawler.set_gauge('analytics', 'storage_memory_status', 1 if status_obj.get('storage_memory_ok', True) else 0)
+            self.trawler.set_gauge('analytics', 'reindex_status', 1 if status_obj.get('reindex_ok', True) else 0)
+
     def fish_analytics_v2(self):
-        errored=False
+        """ Main fishing function for analytics v2 (10.0.5 onwards)"""
+        self.analytics_service_status()
+        errored = False
         # Cluster Health
         try:
             health = requests.get(
@@ -238,14 +263,15 @@ class AnalyticsNet(object):
             summary = calls_req.json()
             summary_output = {'1':0,'2':0,'3':0,'4':0,'5':0}
             total = 0
-            for status in summary['status_codes']['data']:
-                if status['group'][0] in summary_output:
-                    summary_output[status['group'][0]] += status['value']
-                total += status['value']
+            if 'status_codes' in summary:
+                for status in summary['status_codes']['data']:
+                    if status['group'][0] in summary_output:
+                        summary_output[status['group'][0]] += status['value']
+                    total += status['value']
 
-            self.trawler.set_gauge('analytics', 'apicalls_{}.total'.format(metric_name), total)
-            for status in summary_output:
-                self.trawler.set_gauge('analytics', 'apicalls_{}.{}xx'.format(metric_name, status), summary_output[status])
+                self.trawler.set_gauge('analytics', 'apicalls_{}.total'.format(metric_name), total)
+                for status in summary_output:
+                    self.trawler.set_gauge('analytics', 'apicalls_{}.{}xx'.format(metric_name, status), summary_output[status])
 
 
     @alog.timed_function(logger.trace)
