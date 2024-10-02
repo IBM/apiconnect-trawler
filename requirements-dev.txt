@@ -1,9 +1,0 @@
-pre-commit
-flake8
-setuptools
-pytest>=3.6
-pytest-cov
-pytest-mock
-pytest_catchlog
-requests-mock
-python-coveralls
