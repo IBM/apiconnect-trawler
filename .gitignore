@@ -4,3 +4,4 @@ coverage.xml
 __pycache__/
 local/
 *.pyc
+secrets/
