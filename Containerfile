@@ -18,8 +18,8 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal
 ARG USER_UID
 ARG USER_NAME
 
-ENV USER_UID ${USER_UID:-1001}
-ENV USER_NAME ${USER_NAME:-apic}
+ENV USER_UID 1001
+ENV USER_NAME apic
 RUN mkdir -p ${HOME} && chown ${USER_UID}:0 ${HOME} && chmod ug+rwx ${HOME}
 
 COPY --from=build /app/out/trawler /app/trawler
