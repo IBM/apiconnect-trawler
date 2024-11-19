@@ -38,6 +38,9 @@ jobs:
           tags: latest ${{ github.ref_name }}
           containerfiles: |
             ./Containerfile
+          build-args: |
+            USER_UID=1001
+            USER_NAME=apic
 
       - name: Log in to the GitHub Container registry
         uses: redhat-actions/podman-login@v1
