@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal
+FROM registry.access.redhat.com/ubi8/ubi-minimal AS build
 RUN microdnf update -y --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 && \
     microdnf install -y --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 zip unzip make git gcc && \
     microdnf install -y --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 go-toolset ca-certificates && \
