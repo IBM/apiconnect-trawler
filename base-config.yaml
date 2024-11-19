@@ -1,0 +1,20 @@
+# Example configuration file
+prometheus:
+  port: 63512 
+  enabled: true
+logging:
+  level: debug
+nets:
+  apiconnect:
+    enabled: true
+    frequency: 10
+  datapower:
+    enabled: false
+    timeout: 100
+  manager:
+    enabled: false 
+    frequency: 100
+    process_org_metrics: true
+  analytics:
+    enabled: true
+    frequency: 10
