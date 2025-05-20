@@ -67,36 +67,75 @@ Feature requests and issue reports are welcome as [github issues](https://github
 
 ## Development tips
 
-### Setting up your development environment
+## Running locally for development 
 
-Install the pre-reqs for trawler from requirements.txt and development and testing requirements from requirements-dev.txt
+### Secret set up
 
-    pip install -r requirements.txt
-    pip install -r requirements-dev.txt
+    secrets/
+      datapower/  <-- datapower login credentials (DP_CREDS)
+        password
+      management/  <-- client credentials for accessing APIC platform api (MGMT_CREDS)
+        client_id
+        client_secret
+      analytics/   <-- client certificate to connect to analytics (ANALYTICS_CERTS)
+        ca.crt
+        tls.crt
+        tls.key
+      cert/  <-- server certificates for trawler (CERT_PATH if using SECURE)
+        ca.crt
+        tls.crt
+        tls.key
 
-Initialise the pre-commit checks for Trawler using [pre-commit](https://pre-commit.com/)
+Then ensure the following environment variables are set:
 
-    pre-commit install
-
-### Running test cases locally
-
-Trawler uses py.test for test cases and the test suite is intended to be run with the test-assets directory as the secrets path.
-
-    SECRETS=test-assets coverage run --source . -m py.test
-
-
-### Running locally
-
-To run locally point the config parameter to a local config file
-
-    python3 trawler.py --config local/config.yaml
-
-You can view the data that is being exposed to prometheus at [localhost:63512](http://localhost:63512) (or the custom port value if it's been changed)
+```
+export MGMT_CREDS=secrets/management
+export DP_CREDS=secrets/datapower
+export ANALYTICS_CERTS=secrets/analytics
+# if testing using https and mtls
+export SECURE=true
+export CERT_PATH=secrets/cert
+```
 
 
+### DataPower
 
-Notes on developing with a running k8s pod:
+ - Log into your cluster. 
+ - Ensure you have the password available in the secrets directory and the username set in your config
 
-    kubectl cp datapower_trawl.py {trawler_pod}:/app/datapower_trawl.py
-    kubectl cp newconfig.yaml {trawler_pod}:/app/newconfig.yaml
-    kubectl exec {trawler_pod} -- sh -c 'cd /app;python3 trawler.py -c newconfig.yaml'
+```
+kubectl get secret gateway-admin-secret -o yaml | grep " password" | awk '{print $2}' | base64 -d > secrets/datapower/password
+```
+
+ - Open port-forward to both ports 5554 (for REST Management) and 9443 (for API Invoke)
+  
+```
+kubectl port-forward $(kubectl get pods -l app.kubernetes.io/name=datapower -o name | head -1) 9443 5554
+```
+
+By default trawler will look for all the gateway pods in the cluster by label - this can also be restricted by namespace through the config.  Typically running in the cluster, trawler will communicate directly with each pod to retrieve metrics.  For local testing or running outside of the cluster you may wish to override the host it uses to retrieve metrics in the config (nets.datapower.host) - this will then be used instead of each pods individual IP address - getting metrics from a single place but reporting as if it spoke to each in turn.
+
+
+
+
+
+
+
+### Analytics
+
+ - Log into your cluster. 
+ - Ensure you have the certificates available in the secrets directory
+
+```
+kubectl get secret analytics-client -o yaml > /tmp/analytics-client
+cat /tmp/analytics-client | grep " tls.crt" | awk '{print $2}' | base64 -d > secrets/analytics/tls.crt
+cat /tmp/analytics-client | grep " tls.key" | awk '{print $2}' | base64 -d > secrets/analytics/tls.key
+```
+
+ - Open port-forward to port 3009 on one of the analytics director pods
+
+```
+kubectl port-forward $(kubectl get deployment -l app.kubernetes.io/name=director -o name) 3009
+```
+
+

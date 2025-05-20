@@ -35,21 +35,21 @@ type TotalResponse struct {
 }
 
 var log = alog.UseChannel("consumption")
-var version = ""
 
 var healthStatus = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "consumption_health_status",
 		Help: "Health",
 	},
-	[]string{"component", "crnMask", "version"})
+	[]string{"component", "crnMask"})
 
 func (a *Consumption) apiCallCount(analytics_url string) {
+	formFactor := os.Getenv(("formFactor"))
+	fmt.Println("Form factor is", formFactor)
 	certPath := os.Getenv("ANALYTICS_CERTS")
 	timeframe := "timeframe=last1minute"
 	//url := fmt.Sprintf("%s/cloud/dashboards/status?%s", analytics_url, timeframe)
 	url := fmt.Sprintf("%s/cloud/events/count?%s", analytics_url, timeframe)
-
 	log.Log(alog.INFO, "Calling %s", url)
 	response, err := nets.InvokeAPI(url, certPath, "")
 	if err != nil {
@@ -60,12 +60,33 @@ func (a *Consumption) apiCallCount(analytics_url string) {
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		}
-		response.Body.Close()
+		err = response.Body.Close()
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+		}
 		log.Log(alog.DEBUG, "%v", total)
 		if total.Total > 0 {
-			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask, version).Set(float64(1))
+			if formFactor == "ibm-cloud" {
+				err := SendMetrics("success")
+				if err != nil {
+					fmt.Println("Error sending metrics:", err)
+				} else {
+					fmt.Println("Metrics sent successfully.")
+				}
+
+			}
+			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask).Set(float64(1))
 		} else {
-			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask, version).Set(float64(0))
+			if formFactor == "ibm-cloud" {
+				err := SendMetrics("failure")
+				if err != nil {
+					fmt.Println("Error sending metrics:", err)
+				} else {
+					fmt.Println("Metrics sent successfully.")
+				}
+
+			}
+			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask).Set(float64(0))
 		}
 	}
 }
@@ -85,8 +106,7 @@ func (a *Consumption) findAnalytics(dynamicClient dynamic.DynamicClient) error {
 	for _, a7s := range a7ss.Items {
 		analyticsName := a7s.Object["metadata"].(map[string]interface{})["name"].(string)
 		analyticsNamespace := a7s.Object["metadata"].(map[string]interface{})["namespace"].(string)
-		version = a7s.Object["status"].(map[string]interface{})["versions"].(map[string]interface{})["reconciled"].(string)
-		log.Log(alog.INFO, "Found analyticscluster: name %s, namespace %s, version: %s", analyticsName, analyticsNamespace, version)
+		log.Log(alog.INFO, "Found analyticscluster: name %s, namespace %s", analyticsName, analyticsNamespace)
 
 		services := a7s.Object["status"].(map[string]interface{})["services"].(map[string]interface{})
 

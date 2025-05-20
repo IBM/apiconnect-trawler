@@ -8,10 +8,12 @@ import (
 	"nets"
 	"nets/analytics"
 	"nets/apiconnect"
+	"nets/certs"
 	"nets/consumption"
 	"nets/datapower"
 	"nets/manager"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/IBM/alchemy-logging/src/go/alog"
@@ -41,6 +43,7 @@ type Config struct {
 		APIConnect  apiconnect.APIConnectNetConfig   `yaml:"apiconnect"`
 		Analytics   analytics.AnalyticsNetConfig     `yaml:"analytics"`
 		Consumption consumption.ConsumptionNetConfig `yaml:"consumption"`
+		Certs       certs.CertsNetConfig             `yaml:"certificates"`
 		DataPower   datapower.DataPowerNetConfig     `yaml:"datapower"`
 		Manager     manager.ManagerNetConfig         `yaml:"manager"`
 	} `yaml:"nets"`
@@ -64,7 +67,7 @@ func ReadConfig() Config {
 	log.Log(alog.INFO, "Loading config from %s ", config_path)
 
 	// Open YAML file
-	file, err := os.Open(config_path)
+	file, err := os.Open(filepath.Clean(config_path))
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	}
@@ -105,10 +108,12 @@ func main() {
 	// Set up logging
 
 	alog.Config(alog.INFO, alog.ChannelMap{
-		"trawler": alog.DEBUG,
+		"trawler": alog.INFO,
 		"apim":    alog.INFO,
+		"nets":    alog.INFO,
 		"apic":    alog.INFO,
 		"a7s":     alog.INFO,
+		"cert":    alog.DEBUG,
 		"dp":      alog.INFO,
 	})
 	// Read config file...
@@ -131,7 +136,6 @@ func main() {
 		log.Log(alog.INFO, "Enabled analytics net with %s frequency", a7s.Frequency)
 		go a7s.BackgroundFishing()
 	}
-
 	// Consumption health net
 	if config.Nets.Consumption.Enabled {
 		c := consumption.Consumption{}
@@ -140,6 +144,15 @@ func main() {
 		log.Log(alog.INFO, "Enabled consumption net with %s frequency", c.Frequency)
 		c.Fish()
 		go c.BackgroundFishing()
+	}
+	// Certs net
+	if config.Nets.Certs.Enabled {
+		cert_net := certs.Certs{}
+		cert_net.Config = config.Nets.Certs
+		cert_net.Frequency = frequency(config.Nets.Consumption.Frequency)
+		log.Log(alog.INFO, "Enabled certificate net with %s frequency", cert_net.Frequency)
+		cert_net.Fish()
+		go cert_net.BackgroundFishing()
 	}
 	// Manager net
 	if config.Nets.Manager.Enabled {
@@ -178,12 +191,12 @@ func main() {
 }
 
 func ListenAndServe(mux *http.ServeMux, listenPort string) (*http.Server, error) {
-	srv := &http.Server{}
+	srv := &http.Server{
+		Addr:              ":" + listenPort,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second, // for gosec G112 (CWE-400)
+	}
 	if os.Getenv("SECURE") != "true" {
-		srv := &http.Server{
-			Addr:    ":" + listenPort,
-			Handler: mux,
-		}
 		log.Log(alog.INFO, "Listening insecurely on http://0.0.0.0:%s/metrics", listenPort)
 		err := srv.ListenAndServe()
 		if err != nil {
@@ -193,10 +206,6 @@ func ListenAndServe(mux *http.ServeMux, listenPort string) (*http.Server, error)
 
 	} else {
 
-		srv := &http.Server{
-			Addr:    ":" + listenPort,
-			Handler: mux,
-		}
 		certPath := os.Getenv("CERT_PATH")
 		certReloader := CertReloader{
 			CertFile: certPath + "/tls.crt",
@@ -206,7 +215,7 @@ func ListenAndServe(mux *http.ServeMux, listenPort string) (*http.Server, error)
 		caFile := certPath + "/ca.crt"
 
 		var certPool *x509.CertPool = x509.NewCertPool()
-		caBytes, err := os.ReadFile(caFile)
+		caBytes, err := os.ReadFile(filepath.Clean(caFile))
 		if err != nil {
 			log.Log(alog.FATAL, "failed loading caFile: %v", err)
 			return nil, err

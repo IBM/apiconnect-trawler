@@ -28,16 +28,25 @@ type ManagerNetConfig struct {
 }
 
 type CountStruct struct {
-	Users         float64 `json:"users"`
-	ProviderOrgs  float64 `json:"provider_orgs"`
-	Catalogs      float64 `json:"catalogs"`
-	DraftProducts float64 `json:"draft_products"`
-	DraftApis     float64 `json:"draft_apis"`
-	Apis          float64 `json:"apis"`
-	Products      float64 `json:"products"`
+	Users                  float64 `json:"users"`
+	Members                float64 `json:"members"`
+	ProviderOrgs           float64 `json:"provider_orgs"`
+	Catalogs               float64 `json:"catalogs"`
+	DraftProducts          float64 `json:"draft_products"`
+	DraftApis              float64 `json:"draft_apis"`
+	Apis                   float64 `json:"apis"`
+	Products               float64 `json:"products"`
+	ProductLifecycleStates struct {
+		Staged     float64 `json:"staged"`
+		Published  float64 `json:"published"`
+		Deprecated float64 `json:"deprecated"`
+		Retired    float64 `json:"retired"`
+		Archived   float64 `json:"archived"`
+	} `json:"product_lifecyle_states"`
 	ConsumerOrgs  float64 `json:"consumer_orgs"`
 	Subscriptions float64 `json:"subscriptions"`
 	ConsumerApps  float64 `json:"consumer_apps"`
+	Apps          float64 `json:"apps"` // At catalog level consumer_apps becomes apps
 	Spaces        float64 `json:"spaces"`
 }
 
@@ -67,8 +76,9 @@ type Org struct {
 	} `json:"catalogs"`
 }
 type Catalog struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id     string      `json:"id"`
+	Name   string      `json:"name"`
+	Counts CountStruct `json:"counts"`
 }
 
 type ConfiguredGatewayServices struct {
@@ -87,7 +97,6 @@ type ConfiguredGatewayService struct {
 }
 
 var version string
-var name string
 
 var crlList = nets.GetCustomResourceList
 var invokeAPI = nets.InvokeAPI
@@ -151,7 +160,6 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 		defer response.Body.Close()
 		var cgsResponse ConfiguredGatewayServices
 		err = json.NewDecoder(response.Body).Decode(&cgsResponse)
-		fmt.Println(cgsResponse.TotalResults)
 		for _, cgs := range cgsResponse.Results {
 			m.metrics["outstandingSent"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingSentEvents))
 			m.metrics["outstandingQueued"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingQueuedEvents))
@@ -169,9 +177,13 @@ func (m *Manager) setMetric(gauge_name string, value float64, labels []string) {
 }
 
 func (m *Manager) publishTopologyMetrics(topologyCount CountStruct, managementName string, managementNamespace string, scope string, name string) {
-	m.metrics["porgGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.ProviderOrgs)
 	m.metrics["corgGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.ConsumerOrgs)
-	m.metrics["userGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.Users)
+	if scope == "cloud" { // Only cloud uses users other levels are members
+		m.metrics["userGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.Users)
+		m.metrics["porgGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.ProviderOrgs)
+	} else {
+		m.metrics["userGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.Members)
+	}
 	m.metrics["appGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.ConsumerApps)
 	m.metrics["subGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.Subscriptions)
 	m.metrics["draftApiGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.DraftApis)
@@ -195,7 +207,7 @@ func (m *Manager) findAPIM() error {
 			services := apim.Object["status"].(map[string]interface{})["services"].(map[string]interface{})
 
 			management_url := fmt.Sprintf("https://%s.%s.svc:2000", services["juhu"], managementNamespace)
-			log.Log(alog.INFO, "URL to use is %s", fmt.Sprintf("%s.%s.svc:3009", services["juhu"], managementNamespace))
+			log.Log(alog.INFO, "URL to use is %s", fmt.Sprintf("%s.%s.svc:2000", services["juhu"], managementNamespace))
 			if m.Config.Host != "" {
 				management_url = m.Config.Host
 				if !strings.HasPrefix(management_url, "https://") {
@@ -219,13 +231,25 @@ func (m *Manager) findAPIM() error {
 			// Publish cloud scoped count metrics
 			m.publishTopologyMetrics(topology.Counts, managementName, managementNamespace, "cloud", "")
 			for _, org := range topology.Orgs.Results {
-				// Publish org scoped count metrics
-				m.publishTopologyMetrics(org.Counts, managementName, managementNamespace, "org", org.Name)
 				if m.Config.ProcessOrgMetrics {
 					for _, catalog := range org.Catalogs.Results {
+						// Retreive catalog level webhook information
 						m.getWebhookStats(management_url, org.Name, catalog.Name)
+						// Maybe Publish catalog scoped count metrics? - should be an option
+						// m.publishTopologyMetrics(catalog.Counts, managementName, managementNamespace, "catalog", catalog.Name)
+						// TODO: Expand this to cover all objects we want to total at org level
+						org.Counts.Apis += catalog.Counts.Apis
+						org.Counts.Products += catalog.Counts.Products
+						org.Counts.ConsumerApps += catalog.Counts.Apps // At catalog level consumer_apps becomes apps
+						org.Counts.ConsumerOrgs += catalog.Counts.ConsumerOrgs
+						org.Counts.Spaces += catalog.Counts.Spaces
+						org.Counts.Subscriptions += catalog.Counts.Subscriptions
 					}
+					org.Counts.Catalogs = float64(len(org.Catalogs.Results))
+					// Publish org scoped count metrics
+					m.publishTopologyMetrics(org.Counts, managementName, managementNamespace, "org", org.Name)
 				}
+
 			}
 		}
 	}

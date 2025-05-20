@@ -1,8 +1,18 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://gitlab.com/pycqa/flake8
-    rev: 'master'  # Use the sha / tag you want to point at
+- repo: https://github.com/ibm/detect-secrets
+  rev: 0.13.1+ibm.61.dss
     hooks:
-    -   id: flake8
-        args: []
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline, --use-all-plugins]
+- repo: https://github.com/dnephin/pre-commit-golang
+  rev: v0.5.1
+  hooks:
+    - id: go-fmt
+    - id: validate-toml
+    - id: no-go-testing
+    - id: go-unit-tests
+    - id: go-build
+    - id: go-mod-tidy
+
