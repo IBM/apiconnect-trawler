@@ -1,3 +1,6 @@
+cover.out
+exporter
+*/coverage.html
 coverage.xml
 .coverage
 .pytest_cache/
@@ -5,3 +8,5 @@ __pycache__/
 local/
 *.pyc
 secrets/
+.vscode/settings.json
+config.yaml

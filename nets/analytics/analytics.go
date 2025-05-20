@@ -125,7 +125,10 @@ func (a *Analytics) clusterHealth(analytics_url string, analyticsName string, an
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		}
-		response.Body.Close()
+		err = response.Body.Close()
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+		}
 
 		activeShards.WithLabelValues(analyticsName, analyticsNamespace).Set(float64(health.ActiveShards))
 		dataNodeCount.WithLabelValues(analyticsName, analyticsNamespace).Set(float64(health.DataNodeCount))
@@ -153,7 +156,10 @@ func (a *Analytics) apiCallCount(analytics_url string, analyticsName string, ana
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		}
-		response.Body.Close()
+		err = response.Body.Close()
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+		}
 		log.Log(alog.DEBUG, "%v", status)
 
 		for _, statusPair := range status.StatusCodes.Data {
@@ -175,7 +181,10 @@ func (a *Analytics) ingestionStats(analytics_url string, analyticsName string, a
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		}
-		response.Body.Close()
+		err = response.Body.Close()
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+		}
 		eventsIn.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "offload").Set(float64(ingestion.Data.Pipelines.Offload.Events.In))
 		eventsOut.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "offload").Set(float64(ingestion.Data.Pipelines.Offload.Events.Out))
 		eventsIn.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "storage").Set(float64(ingestion.Data.Pipelines.Storage.Events.In))

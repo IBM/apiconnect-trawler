@@ -6,9 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -110,7 +108,7 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 	if certPath != "" {
 		// Create a HTTPS client and supply the certificates
 		caCertPool := x509.NewCertPool()
-		caCert, _ := os.ReadFile(certPath + "/ca.crt")
+		caCert, _ := os.ReadFile(filepath.Clean(certPath + "/ca.crt"))
 		caCertPool.AppendCertsFromPEM(caCert)
 		cert, err := tls.LoadX509KeyPair(
 			fmt.Sprintf("%s/tls.crt", certPath),
@@ -123,13 +121,13 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 			TLSClientConfig: &tls.Config{
 				RootCAs:            caCertPool,
 				Certificates:       []tls.Certificate{cert},
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
 			},
 		}
 	} else {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
 			},
 		}
 	}
@@ -139,7 +137,11 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 	}
 	log.Log(alog.DEBUG, "Calling %s", url)
 
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return nil, err
+	}
 	req.Header.Add("Accept", "application/json")
 
 	if token != "" {
@@ -151,7 +153,7 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 		return nil, err
 	}
 	if response.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Unexpected status - Got %s, expected 200", response.Status))
+		return nil, fmt.Errorf("unexpected status - got %s, expected 200", response.Status)
 	}
 
 	return response, nil
@@ -180,19 +182,21 @@ func GetToken(management_url string) (string, error) {
 
 func getNewToken(management_url string) (string, error) {
 	secretPath := os.Getenv(("MGMT_CREDS"))
-	clientId, _ := ioutil.ReadFile(secretPath + "/client_id")
-	clientSecret, _ := ioutil.ReadFile(secretPath + "/client_secret")
+	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
+	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
 
 	postBody, _ := json.Marshal(map[string]string{
 		"client_id":     string(clientId),
 		"client_secret": string(clientSecret),
 		"grant_type":    "client_credentials",
 	})
+	log.Log(alog.DEBUG, string(postBody))
+
 	tokenRequest := bytes.NewBuffer(postBody)
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
 			},
 		},
 	}
@@ -207,13 +211,10 @@ func getNewToken(management_url string) (string, error) {
 		req.Header.Set("Accept", "application/json")
 		response, err := client.Do(req)
 		if err != nil {
+			log.Log(alog.ERROR, err.Error())
 			return "", err
 		} else {
 			defer response.Body.Close()
-			if err != nil {
-				log.Log(alog.ERROR, err.Error())
-				return "", err
-			}
 			var bearerToken TokenResponse
 			err = json.NewDecoder(response.Body).Decode(&bearerToken)
 			if err != nil {

@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"nets"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/IBM/alchemy-logging/src/go/alog"
@@ -156,6 +160,27 @@ type AnalyticsEndpointStatus2Response struct {
 	}
 }
 
+// Response from the /mgmt/status/apiconnect/OpenTelemetryExporterStatus endpoint
+// of the DataPower REST Management Interface.
+type OpenTelemetryExporterStatusResponse struct {
+	Links                       Links `json:"_links"`
+	OpenTelemetryExporterStatus []struct {
+		Exporter     Identifier
+		SuccessSpans uint64
+		FailedSpans  uint64
+		DroppedSpans uint64
+	}
+}
+
+// Response from the /mgmt/config/apiconnect/APIConnectGatewayService endpoint
+// of the DataPower REST Management Interface.
+type APIConnectGatewayServiceResponse struct {
+	Links                    Links `json:"_links"`
+	APIConnectGatewayService struct {
+		UserDefinedPolicies []Identifier
+	}
+}
+
 var log = alog.UseChannel("dp")
 
 func (d *DataPower) registerMetrics() {
@@ -200,6 +225,14 @@ func (d *DataPower) registerMetrics() {
 	d.metrics["gateway_peering_primary_link"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_peering_primary_link"}, []string{"pod", "namespace", "peering_group"})
 	d.metrics["gateway_peering_primary_offset"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_peering_primary_offset"}, []string{"pod", "namespace", "peering_group"})
 	d.metrics["gateway_peering_group_members"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_peering_group_members"}, []string{"pod", "namespace", "peering_group"})
+
+	// Otel Exporter Status
+	d.metrics["otel_exporter_success"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_otel_exporter_success"}, []string{"pod", "namespace", "exporter"})
+	d.metrics["otel_exporter_failed"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_otel_exporter_failed"}, []string{"pod", "namespace", "exporter"})
+	d.metrics["otel_exporter_dropped"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_gateway_otel_exporter_dropped"}, []string{"pod", "namespace", "exporter"})
+
+	// User defined policies Status
+	d.metrics["user_defined_policies_info"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_user_defined_policies_info"}, []string{"pod", "namespace", "policy", "version"})
 
 	// Invoke API Tests
 	d.metrics["invoke_api_size"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_invoke_api_size", Help: "invoke response content length"}, []string{"pod", "namespace", "name"})
@@ -253,6 +286,8 @@ func (d *DataPower) findGW(dynamicClient dynamic.DynamicClient) error {
 		d.tcpSummary(ip, pod.Name, pod.Namespace)
 		d.analyticsStatus(ip, pod.Name, pod.Namespace)
 		d.gatewayPeeringStatus(ip, pod.Name, pod.Namespace)
+		d.openTelemetryExporterStatus(ip, pod.Name, pod.Namespace)
+		d.apiConnectGatewayServiceStatus(ip, pod.Name, pod.Namespace)
 		// Still to do:
 		//  - Object Counts
 		if V5Compatible {
@@ -277,7 +312,7 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
 		},
 	}
 
@@ -306,7 +341,10 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 
 		d.invokeCounter.WithLabelValues(pod, namespace, apitest.Name, fmt.Sprint(response.StatusCode)).Inc()
 
-		response.Body.Close()
+		err = response.Body.Close()
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+		}
 	}
 
 }
@@ -324,9 +362,14 @@ func (d *DataPower) tcpSummary(ip string, podName string, podNamespace string) {
 
 	var tcp TCPSummaryResponse
 	err = json.NewDecoder(response.Body).Decode(&tcp)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
 
@@ -356,9 +399,14 @@ func (d *DataPower) firmwareVersion(ip string, podName string, podNamespace stri
 
 	var fw FirmwareVersion3Response
 	err = json.NewDecoder(response.Body).Decode(&fw)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
 
@@ -378,9 +426,14 @@ func (d *DataPower) logTargetStatus(ip string, podName string, podNamespace stri
 
 	var logs LogTargetStatusResponse
 	err = json.NewDecoder(response.Body).Decode(&logs)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
 
@@ -411,12 +464,16 @@ func (d *DataPower) analyticsStatus(ip string, podName string, podNamespace stri
 
 	var analyticsStatus AnalyticsEndpointStatus2Response
 	err = json.NewDecoder(response.Body).Decode(&analyticsStatus)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
-
 	d.metrics["analytics_success"].WithLabelValues(podName, podNamespace).Set(float64(analyticsStatus.AnalyticsEndpointStatus2.Success))
 	d.metrics["analytics_drop"].WithLabelValues(podName, podNamespace).Set(float64(analyticsStatus.AnalyticsEndpointStatus2.Drop))
 	d.metrics["analytics_pending"].WithLabelValues(podName, podNamespace).Set(float64(analyticsStatus.AnalyticsEndpointStatus2.Pending))
@@ -435,9 +492,14 @@ func (d *DataPower) documentCacheSummaryAPIGW(ip string, podName string, podName
 
 	var documentCache APIDocumentCachingSummaryResponse
 	err = json.NewDecoder(response.Body).Decode(&documentCache)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
 
@@ -459,9 +521,14 @@ func (d *DataPower) gatewayPeeringStatus(ip string, podName string, podNamespace
 
 	var peeringStatus GatewayPeeringStatusResponse
 	err = json.NewDecoder(response.Body).Decode(&peeringStatus)
-	response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	if err != nil || err2 != nil {
 		return
 	}
 	var peeringGroupCounts = make(map[string]int)
@@ -503,6 +570,94 @@ func (d *DataPower) gatewayPeeringStatus(ip string, podName string, podNamespace
 	}
 }
 
+// *DataPower.openTelemetryExporterStatus makes a request to the OpenTelemetryExporterStatus endpoint
+// and stores the resulting values to their matching *prometheus.GaugeVec items
+// in the *DataPower.metrics map.
+func (d *DataPower) openTelemetryExporterStatus(ip string, podName string, podNamespace string) {
+	log.Log(alog.TRACE, "Entering openTelemetryExporterStatus(%s, %s, %s)", ip, podName, podNamespace)
+	response, err := d.invokeRestMgmt(ip, "mgmt/status/apiconnect/OpenTelemetryExporterStatus")
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	defer response.Body.Close()
+
+	var otelExporterStatusRes OpenTelemetryExporterStatusResponse
+	err = json.Unmarshal(body, &otelExporterStatusRes)
+	if err != nil {
+		// If there is only one exporter object, the response is coming as an object.
+		// So we try unmarshalling it as a single object and append to the slice
+		var tempResponse struct {
+			Links                       Links `json:"_links"`
+			OpenTelemetryExporterStatus struct {
+				Exporter     Identifier
+				SuccessSpans uint64
+				FailedSpans  uint64
+				DroppedSpans uint64
+			}
+		}
+
+		err := json.Unmarshal(body, &tempResponse)
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+			return
+		}
+
+		otelExporterStatusRes.Links = tempResponse.Links
+		otelExporterStatusRes.OpenTelemetryExporterStatus = append(otelExporterStatusRes.OpenTelemetryExporterStatus, tempResponse.OpenTelemetryExporterStatus)
+	}
+
+	for _, target := range otelExporterStatusRes.OpenTelemetryExporterStatus {
+		d.metrics["otel_exporter_success"].WithLabelValues(podName, podNamespace, target.Exporter.Value).Set(float64(target.SuccessSpans))
+		d.metrics["otel_exporter_failed"].WithLabelValues(podName, podNamespace, target.Exporter.Value).Set(float64(target.FailedSpans))
+		d.metrics["otel_exporter_dropped"].WithLabelValues(podName, podNamespace, target.Exporter.Value).Set(float64(target.DroppedSpans))
+	}
+}
+
+// *DataPower.apiConnectGatewayServiceStatus makes a request to the APIConnectGatewayService endpoint
+// and stores the resulting values to their matching *prometheus.GaugeVec items
+// in the *DataPower.metrics map.
+func (d *DataPower) apiConnectGatewayServiceStatus(ip string, podName string, podNamespace string) {
+	log.Log(alog.TRACE, "Entering apiConnectGatewayServiceStatus(%s, %s, %s)", ip, podName, podNamespace)
+	response, err := d.invokeRestMgmt(ip, "mgmt/config/apiconnect/APIConnectGatewayService")
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	defer response.Body.Close()
+
+	var apiConnectGatewayService APIConnectGatewayServiceResponse
+	err = json.Unmarshal(body, &apiConnectGatewayService)
+
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	for _, target := range apiConnectGatewayService.APIConnectGatewayService.UserDefinedPolicies {
+		fullPolicyName := target.Value
+		re := regexp.MustCompile(`(\d+\.\d+\.\d+)`)
+		version := re.FindString(fullPolicyName)
+		policyNameWithoutVersion := strings.Replace(fullPolicyName, version, "", 1)
+		policyNameWithoutVersion = strings.TrimRight(policyNameWithoutVersion, "_")
+		d.metrics["user_defined_policies_info"].WithLabelValues(podName, podNamespace, policyNameWithoutVersion, version).Set(1)
+	}
+}
+
 func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, error) {
 	log.Log(alog.TRACE, "Entering invokeRestMgmt(%s,%s)", ip, path)
 	secretPath := os.Getenv(("DP_CREDS"))
@@ -512,14 +667,14 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 		username = d.Config.Username
 	}
 	if username == "" {
-		user_byte, err := os.ReadFile(secretPath + "/username")
+		user_byte, err := os.ReadFile(filepath.Clean(secretPath + "/username"))
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		} else {
 			username = string(user_byte)
 		}
 	}
-	password, err := os.ReadFile(secretPath + "/password")
+	password, err := os.ReadFile(filepath.Clean(secretPath + "/password"))
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	}
@@ -530,7 +685,7 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
 		},
 	}
 
