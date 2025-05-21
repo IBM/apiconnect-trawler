@@ -79,13 +79,13 @@ func getIAMToken() (string, error) {
 	return iamResp.AccessToken, nil
 }
 
-func SendMetrics(state string) error {
+func SendMetrics(isSuccess bool) error {
 
 	status := 0
 	var alert *Alert
 	serviceOutput := "Lifecycle: API Call traffic detected."
 
-	if state == "failure" {
+	if !isSuccess {
 		status = 1
 		alert = &Alert{
 			Severity:          2,
@@ -121,7 +121,7 @@ func SendMetrics(state string) error {
 
 	jsonPayload, _ := json.Marshal(payload)
 	client := &http.Client{}
-	fmt.Println("Payload before sending to edb:", string(jsonPayload))
+	log.Log(alog.INFO, "Payload before sending to edb:", string(jsonPayload))
 
 	// Add query parameters
 	params := url.Values{}
@@ -147,7 +147,7 @@ func SendMetrics(state string) error {
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	fmt.Println("Response Status Code:", resp.StatusCode)
-	fmt.Println("Successfully sent payload to EDB:", string(body))
+	log.Log(alog.INFO, "Response Status Code:", resp.StatusCode)
+	log.Log(alog.INFO, "Successfully sent payload to EDB:", string(body))
 	return nil
 }
