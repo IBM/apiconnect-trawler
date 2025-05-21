@@ -45,7 +45,7 @@ var healthStatus = promauto.NewGaugeVec(
 
 func (a *Consumption) apiCallCount(analytics_url string) {
 	formFactor := os.Getenv(("formFactor"))
-	fmt.Println("Form factor is", formFactor)
+	log.Log(alog.DEBUG, "Form factor is", formFactor)
 	certPath := os.Getenv("ANALYTICS_CERTS")
 	timeframe := "timeframe=last1minute"
 	//url := fmt.Sprintf("%s/cloud/dashboards/status?%s", analytics_url, timeframe)
@@ -67,22 +67,22 @@ func (a *Consumption) apiCallCount(analytics_url string) {
 		log.Log(alog.DEBUG, "%v", total)
 		if total.Total > 0 {
 			if formFactor == "ibm-cloud" {
-				err := SendMetrics("success")
+				err := SendMetrics(True)
 				if err != nil {
-					fmt.Println("Error sending metrics:", err)
+					log.Log(alog.ERROR, "Error sending metrics:", err)
 				} else {
-					fmt.Println("Metrics sent successfully.")
+					log.Log(alog.INFO, "Metrics sent successfully.")
 				}
 
 			}
 			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask).Set(float64(1))
 		} else {
 			if formFactor == "ibm-cloud" {
-				err := SendMetrics("failure")
+				err := SendMetrics(False)
 				if err != nil {
-					fmt.Println("Error sending metrics:", err)
+					log.Log(alog.ERROR, "Error sending metrics:", err)
 				} else {
-					fmt.Println("Metrics sent successfully.")
+					log.Log(alog.INFO, "Metrics sent successfully.")
 				}
 
 			}

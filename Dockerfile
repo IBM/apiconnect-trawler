@@ -4,14 +4,13 @@ WORKDIR /app/
 
 RUN dnf upgrade --assumeyes
 RUN dnf install -y curl jq tar --allowerasing
- 
+COPY . .
 # Set the Go version dynamically by fetching the latest version
-RUN GOVERSION=$(curl -s 'https://go.dev/dl/?mode=json' | jq -r '.[0].version' | sed 's/^go//') && \
+RUN GOVERSION=$(egrep "^toolchain " go.mod | awk -Fgo '{print $2}') && \
     echo "Installing Go version: $GOVERSION" && \
     curl -sSL "https://golang.org/dl/go$GOVERSION.linux-amd64.tar.gz" | tar -C /usr/local -xzf - && \
     ln -s /usr/local/go/bin/go /usr/bin/go
 
-COPY . .
 RUN go mod download 
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler .
