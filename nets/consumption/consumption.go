@@ -67,7 +67,7 @@ func (a *Consumption) apiCallCount(analytics_url string) {
 		log.Log(alog.DEBUG, "%v", total)
 		if total.Total > 0 {
 			if formFactor == "ibm-cloud" {
-				err := SendMetrics(True)
+				err := SendMetrics(true)
 				if err != nil {
 					log.Log(alog.ERROR, "Error sending metrics:", err)
 				} else {
@@ -78,7 +78,7 @@ func (a *Consumption) apiCallCount(analytics_url string) {
 			healthStatus.WithLabelValues("API Calls", a.Config.CrnMask).Set(float64(1))
 		} else {
 			if formFactor == "ibm-cloud" {
-				err := SendMetrics(False)
+				err := SendMetrics(false)
 				if err != nil {
 					log.Log(alog.ERROR, "Error sending metrics:", err)
 				} else {
