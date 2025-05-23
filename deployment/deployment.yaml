@@ -18,48 +18,74 @@ spec:
         prometheus.io/port: "63512"
         prometheus.io/scrape: "true"
     spec:
-      volumes:
-      - name: trawler-config
-        configMap:
-          name: trawler
-          optional: true
-      - name: trawler-secrets
-        secret:
-          secretName: trawler
-          optional: true
-      hostNetwork: false
-      dnsPolicy: ClusterFirstWithHostNet
-      serviceAccount: trawler
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-      terminationGracePeriodSeconds: 5
       containers:
-      - name: trawler
-        image: ghcr.io/ibm/apiconnect-trawler/trawler:main
-        imagePullPolicy: Always
-        securityContext:
-          allowPrivilegeEscalation: false
-          privileged: false
-          runAsNonRoot: true
-          readOnlyRootFilesystem: false
-        ports:
-        - containerPort: 63512 
-          name: metrics
-          protocol: TCP
-        resources:
-          requests:
-            cpu: 200m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 256Mi
-        readinessProbe:
-          exec:
-            command: [ "test", "-e", "/app/trawler.py" ]
-          initialDelaySeconds: 10
-        volumeMounts:
-        - mountPath: /app/config
+        - env:
+          - name: MGMT_CREDS
+            value: /app/management
+          - name: ANALYTICS_CERTS
+            value: /app/analytics
+          - name: SECURE
+            value: 'true'
+          - name: CERT_PATH
+            value: /app/certs
+          - name: CONFIG_PATH
+            value: /app/config/config.yaml
+          image: $IMAGE
+          imagePullPolicy: Always
+          name: trawler
+          ports:
+            - containerPort: 63512
+              name: metrics
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          volumeMounts:
+            - mountPath: /app/config
+              name: trawler-config
+            - mountPath: /app/management
+              name: trawler-creds
+            - mountPath: /app/datapower
+              name: datapower-creds              
+# Update the following for your analytics deployment (replace analytics with your subsystem name)
+            - mountPath: /app/analytics
+              name: analytics-client-certificate
+              readOnly: true
+            - mountPath: /app/certs
+              name: trawler-certificate
+              readOnly: true
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: false
+      serviceAccount: trawler
+      terminationGracePeriodSeconds: 5
+      volumes:
+        - configMap:
+            name: trawler-config
+            optional: true
           name: trawler-config
-        - mountPath: /app/secrets
-          name: trawler-secrets
+        - name: trawler-creds
+          secret:
+            optional: true
+            secretName: trawler-mgmt-creds
+        - name: trawler-certificate
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: trawler-certificate
+        - name: analytics-client-certificate
+          secret:
+            defaultMode: 420
+            secretName: analytics-client
+        - name: datapower-creds
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: trawler-dp-creds

@@ -1,0 +1,17 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trawler-a7s
+spec:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: trawler
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: analytics
+      app.kubernetes.io/name: director
+  policyTypes:
+    - Ingress

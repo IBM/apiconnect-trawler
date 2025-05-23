@@ -8,7 +8,7 @@ metadata:
   name: trawler
 spec:
   ports:
-  - name: metrics
+  - name: web
     port: 63512
     protocol: TCP
     targetPort: 63512

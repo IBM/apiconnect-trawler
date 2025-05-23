@@ -1,0 +1,20 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: trawler-networkpolicy
+spec:
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: openshift-user-workload-monitoring
+          podSelector: {}
+      ports:
+        - port: 63512
+          protocol: TCP
+  podSelector:
+    matchLabels:
+      app: trawler
+  policyTypes:
+    - Ingress

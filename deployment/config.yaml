@@ -1,16 +1,30 @@
 # Example configuration file
 prometheus:
-  port: 63512 
+  port: 63512
   enabled: true
+logging:
+  level: info
 nets:
+  apiconnect:
+    enabled: true
+  analytics:
+    enabled: true
+    namespace: analytics-namespace
+  certificates:
+    enabled: true
+    frequency: 600        
   datapower:
     enabled: true
     username: admin
-    namespace: apic
+    namespace: gateway-namespace
+    api_tests:
+      enabled: false
+      apis:
+        - name: testapi
+          path: /porg/catalog/test
+          method: get
+          headers: {}
   manager:
     enabled: true
-    username: admin
-    namespace: apic
-  analytics:
-    enabled: true
-    namespace: apic
+    process_org_metrics: false
+    namespace: manager-apic
