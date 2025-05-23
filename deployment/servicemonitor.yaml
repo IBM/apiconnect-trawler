@@ -6,9 +6,24 @@ metadata:
   name: trawler
 spec:
   endpoints:
-  - port: metrics
+  - port: web
     path: /
-  jobLabel: trawler
+    interval: 30s
+    scheme: https
+    tlsConfig:
+      ca:
+        secret:
+          key: ca.crt
+          name: trawler-certificate
+      cert:
+        secret:
+          key: tls.crt
+          name: trawler-certificate
+      insecureSkipVerify: false
+      keySecret:
+        key: tls.key
+        name: trawler-certificate
+      serverName: trawler.apic.svc.cluster.local
   selector:
     matchLabels:
       app: trawler

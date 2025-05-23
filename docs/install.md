@@ -2,15 +2,18 @@
 
 To install trawler, you can make use of the sample yaml files within the [deployment](../deployment) folder. You will need to customise these according to your deployment in the following ways:
 
- - Adjustments to `config.yaml`:
-     - Change namespace pointers to the appropriate namespace you have the API Connect components deployed in.
-     - Select which nets you want to enable.
-     - Set the usernames for datapower and cloud manager.
- - Adjustments to `kustomization.yaml`:
-     - Set the namespace you would like to deploy trawler into.
-     - Uncomment secret.yaml if you wish to include creation of secrets.
-     - Uncomment servicemonitor.yaml and service.yaml if you are using the prometheus operator model.
- - Set secrets for password values either through base64 encoded values in secret.yaml or through your usual method for managing secrets.
+- Adjustments to `config.yaml`:
+  - Change namespace pointers to the appropriate namespace you have the API Connect components deployed in.
+  - Select which nets you want to enable.
+- Adjustments to `secret-mgmt.yaml`
+  - Set the credentials to use for connecting to cloud manager.
+- Adjustments to `secret-dp.yaml`
+  - Set the credentials to use for connecting to datapower.
+- Adjustments to `kustomization.yaml`:
+  - Set the namespace you would like to deploy trawler into.
+  - Uncomment secret.yaml if you wish to include creation of secrets.
+  - Uncomment servicemonitor.yaml and service.yaml if you are using the prometheus operator model.
+- Set secrets for password values either through base64 encoded values in secret.yaml or through your usual method for managing secrets.
 
 These can either be imported to your cluster directly using `kubectl apply -k .` or to point to as a base for your own kustomize config and overlays with a kustomization.yaml which looks something like this: 
 
@@ -74,3 +77,14 @@ If you are using Instana you can configure the Instana agent to scrape metrics f
             customMetricSources:
             - url: '/'                       # metrics endpoint, the IP and port are auto-discovered
               metricNameIncludeRegex: '.*'   # regular expression to filter metrics 
+
+## Logging
+
+The logging channels are: trawler, apim, nets, apic, a7c, cert, dp
+
+You can set the default log by passing a command line options (`--log.default-level info`)  or in the config e.g. :
+
+```yaml
+logging:
+  level: info
+```

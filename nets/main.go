@@ -184,12 +184,27 @@ func getNewToken(management_url string) (string, error) {
 	secretPath := os.Getenv(("MGMT_CREDS"))
 	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
 	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
-
-	postBody, _ := json.Marshal(map[string]string{
-		"client_id":     string(clientId),
-		"client_secret": string(clientSecret),
-		"grant_type":    "client_credentials",
-	})
+	username, _ := os.ReadFile(filepath.Clean(secretPath + "/username"))
+	password, _ := os.ReadFile(filepath.Clean(secretPath + "/password"))
+	realm, _ := os.ReadFile(filepath.Clean(secretPath + "/realm"))
+	var postBody []byte
+	if (username != nil) && (password != nil) {
+		log.Log(alog.DEBUG, "Username and password are set")
+		postBody, _ = json.Marshal(map[string]string{
+			"client_id":     string(clientId),
+			"client_secret": string(clientSecret),
+			"username":      string(username),
+			"password":      string(password),
+			"realm":         string(realm),
+			"grant_type":    "password",
+		})
+	} else {
+		postBody, _ = json.Marshal(map[string]string{
+			"client_id":     string(clientId),
+			"client_secret": string(clientSecret),
+			"grant_type":    "client_credentials",
+		})
+	}
 	log.Log(alog.DEBUG, string(postBody))
 
 	tokenRequest := bytes.NewBuffer(postBody)

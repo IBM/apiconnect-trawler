@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"flag"
 	"fmt"
 	"net/http"
 	"nets"
@@ -47,6 +48,9 @@ type Config struct {
 		DataPower   datapower.DataPowerNetConfig     `yaml:"datapower"`
 		Manager     manager.ManagerNetConfig         `yaml:"manager"`
 	} `yaml:"nets"`
+	Log struct {
+		Level string `yaml:"level"`
+	} `yaml:"logging"`
 }
 
 type CertReloader struct {
@@ -107,17 +111,19 @@ func frequency(configFrequency int) time.Duration {
 func main() {
 	// Set up logging
 
-	alog.Config(alog.INFO, alog.ChannelMap{
-		"trawler": alog.INFO,
-		"apim":    alog.INFO,
-		"nets":    alog.INFO,
-		"apic":    alog.INFO,
-		"a7s":     alog.INFO,
-		"cert":    alog.DEBUG,
-		"dp":      alog.INFO,
-	})
+	alog.Config(alog.INFO, alog.ChannelMap{})
 	// Read config file...
 	config := ReadConfig()
+
+	defaultLogLevel, _ := alog.LevelFromString(config.Log.Level)
+	alog.ConfigDefaultLevel(defaultLogLevel)
+	log.Log(alog.DEBUG, "Logging level is set to %v", alog.LevelToHumanString(defaultLogLevel))
+
+	// Set up logging from command line flags
+	// https://pkg.go.dev/github.com/IBM/alchemy-logging/src/go@v1.0.3#readme-command-line-flags
+	logFlags := alog.GetFlags()
+	flag.Parse()
+	alog.ConfigureFromFlags(logFlags)
 
 	// Initialise appropriate nets...
 	if config.Nets.APIConnect.Enabled {
@@ -174,6 +180,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
+	// Bind dynamic log handler
+	mux.HandleFunc("/logging", alog.DynamicHandler)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
