@@ -155,9 +155,6 @@ func TestFindAPIM(t *testing.T) {
 	invokeAPI = MockInvokeAPI
 	getToken = MockGetToken
 	err := m.findAPIM()
-	if err != nil {
-		t.Error("expected error to be nil but got %v", err)
-	}
 	assert.Empty(err)
 
 	assert.Empty("full")
