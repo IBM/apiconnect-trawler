@@ -39,7 +39,7 @@ var log = alog.UseChannel("apic")
 func (a *APIConnect) crdStatusMetrics(dynamicClient dynamic.DynamicClient, gvr schema.GroupVersionResource, crdStatus prometheus.GaugeVec) {
 	subsystems, err := dynamicClient.Resource(gvr).List(context.Background(), v1.ListOptions{})
 	if err != nil {
-		fmt.Printf("error getting subsystems: %v\n", err)
+		log.Log(alog.ERROR, "error getting subsystems %v", err)
 		return
 	}
 

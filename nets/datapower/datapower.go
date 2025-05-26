@@ -707,8 +707,7 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 	}
 	if response.StatusCode != 200 {
 		//return nil, errors.New(fmt.Sprintf("Unexpected status - Got %s, expected 200", response.Status))
-		fmt.Printf("ERROR %s\n", response.Status)
-		log.Log(alog.ERROR, response.Status)
+		log.Log(alog.ERROR, "Error invoking rest management with status %s", response.Status)
 		return nil, errors.New(response.Status)
 	}
 	return response, nil
