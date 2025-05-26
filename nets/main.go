@@ -39,6 +39,10 @@ type BaseNet struct {
 	Frequency time.Duration
 }
 
+func (b *BaseNet) String() string {
+	return fmt.Sprintf("Base Net Name: %s || Base Net Disabled:  %t || Base net frequency: %d", b.Name, b.Disabled, b.Frequency)
+}
+
 type NetInterface interface {
 	Fish()
 }
@@ -52,9 +56,8 @@ var log = alog.UseChannel("nets")
 var dynamicClient *dynamic.DynamicClient
 
 func Enable(n BaseNet, frequency int) {
-	fmt.Println(n)
-	fmt.Println(frequency)
-	log.Log(alog.INFO, "enabling %s", n.Name)
+	log.Log(alog.INFO, "Enabling Base Net", n.String())
+
 	net_frequency := time.Duration(5)
 	if frequency != 0 {
 		log.Log(alog.INFO, "net is enabled at %ds frequency", frequency)

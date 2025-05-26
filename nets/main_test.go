@@ -1,13 +1,15 @@
 package nets
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/IBM/alchemy-logging/src/go/alog"
 	"github.com/stretchr/testify/assert"
 )
+
+var testLogger = alog.UseChannel("main_tests")
 
 func TestGetToken(t *testing.T) {
 	assert := assert.New(t)
@@ -21,8 +23,7 @@ func TestGetToken(t *testing.T) {
 
 	token, err := GetToken(server.URL)
 
-	fmt.Println(token)
+	testLogger.Log(alog.DEBUG, "fetched token: %s", token)
 	assert.Nil(err)
 	assert.Equal("123445", token)
-
 }

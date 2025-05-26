@@ -2,18 +2,20 @@ package manager
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/IBM/alchemy-logging/src/go/alog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var testLogger = alog.UseChannel("manager_tests")
 
 var m Manager
 
@@ -58,10 +60,11 @@ func TestTopologyValues(t *testing.T) {
 		Host: server.URL,
 	}
 	m := Manager{Config: config}
-	fmt.Println(m)
+
+	testLogger.Log(alog.DEBUG, "manager: %v", m)
 	assert.Equal(server.Config.Addr, "")
 	ti, err := m.getTopologyInfo(server.URL)
-	fmt.Println(ti)
+	testLogger.Log(alog.DEBUG, "cloud topology: %v", ti)
 	assert.Nil(err)
 	assert.Equal(float64(23), ti.Counts.ProviderOrgs)
 
@@ -82,12 +85,13 @@ func TestWebhookStats(t *testing.T) {
 		Host: server.URL,
 	}
 	m := Manager{Config: config}
-	fmt.Println(m)
+	testLogger.Log(alog.DEBUG, "manager: %v", m)
+
 	assert.Equal(server.Config.Addr, "")
 	m.getWebhookStats(server.URL, "org", "catalog")
 	assert.Empty("hllo")
 	//count := testutil.CollectAndCount(m.metrics["outstandingSent"], "manager_gateway_processing_outstanding_sent_events")
-	//fmt.Println(count)
+	//testLogger.Log(alog.DEBUG, "collected count: %v", count)
 	//assert.Equal(0, count)
 
 }
@@ -152,7 +156,7 @@ func TestFindAPIM(t *testing.T) {
 	getToken = MockGetToken
 	err := m.findAPIM()
 	if err != nil {
-		fmt.Println(err.Error())
+		t.Error("expected error to be nil but got %v", err)
 	}
 	assert.Empty(err)
 

@@ -160,6 +160,7 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 		defer response.Body.Close()
 		var cgsResponse ConfiguredGatewayServices
 		err = json.NewDecoder(response.Body).Decode(&cgsResponse)
+		log.Log(alog.DEBUG, "Webhook status total results:", cgsResponse.TotalResults)
 		for _, cgs := range cgsResponse.Results {
 			m.metrics["outstandingSent"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingSentEvents))
 			m.metrics["outstandingQueued"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingQueuedEvents))
