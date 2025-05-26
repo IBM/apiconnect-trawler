@@ -2,7 +2,7 @@ package manager
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -137,7 +137,7 @@ func MockInvokeAPI(url string, certPath string, token string) (*http.Response, e
 		json = `{"cloud_id":"123445","cloud_name":"test-cloud","counts":{"provider_orgs":23}}`
 	}
 
-	body := ioutil.NopCloser(bytes.NewReader([]byte(json)))
+	body := io.NopCloser(bytes.NewReader([]byte(json)))
 	r := http.Response{
 		StatusCode: 200,
 		Body:       body,
