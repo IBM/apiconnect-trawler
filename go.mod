@@ -2,7 +2,7 @@ module rickymoorhouse/exporter
 
 go 1.23.0
 
-toolchain go1.23.9
+toolchain go1.24.3
 
 require (
 	github.com/IBM/alchemy-logging/src/go v1.0.3
