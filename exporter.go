@@ -123,7 +123,10 @@ func main() {
 	// https://pkg.go.dev/github.com/IBM/alchemy-logging/src/go@v1.0.3#readme-command-line-flags
 	logFlags := alog.GetFlags()
 	flag.Parse()
-	alog.ConfigureFromFlags(logFlags)
+	err := alog.ConfigureFromFlags(logFlags)
+	if err != nil {
+		log.Log(alog.WARNING, "Error loading logging config from flags: ", err.Error())
+	}
 
 	// Initialise appropriate nets...
 	if config.Nets.APIConnect.Enabled {
