@@ -194,8 +194,8 @@ func main() {
 		listenPort = config.Prometheus.Port
 	}
 
-	_, err := ListenAndServe(mux, listenPort)
-	if err != nil {
+	_, errListen := ListenAndServe(mux, listenPort)
+	if errListen != nil {
 		log.Log(alog.ERROR, "Server Failed to Listen")
 	}
 
