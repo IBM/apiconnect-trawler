@@ -15,6 +15,7 @@ import (
 	"nets/manager"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/IBM/alchemy-logging/src/go/alog"
@@ -69,7 +70,11 @@ func ReadConfig() Config {
 	}
 
 	log.Log(alog.INFO, "Loading config from %s ", config_path)
-
+	
+	// Block paths starting with '/' or containing '..'
+	if strings.Contains(config_path, "..") {
+		log.Log(alog.ERROR, "invalid config path: %s", config_path)
+	}
 	// Open YAML file
 	file, err := os.Open(filepath.Clean(config_path))
 	if err != nil {
