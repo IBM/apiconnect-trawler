@@ -91,6 +91,7 @@ type IngestionPipelineStats struct {
 	} `json:"data"`
 }
 
+var clusterStatus = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "analytics_cluster_status", Help: "Cluster Status"}, []string{"component", "namespace"})
 var dataNodeCount = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "analytics_data_nodes_total", Help: "Active Shards"}, []string{"component", "namespace"})
 var nodeCount = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "analytics_nodes_total", Help: "Active Shards"}, []string{"component", "namespace"})
 var primaryShards = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "analytics_active_primary_shards_total", Help: "Active Shards"}, []string{"component", "namespace"})
@@ -139,6 +140,14 @@ func (a *Analytics) clusterHealth(analytics_url string, analyticsName string, an
 		initializingShards.WithLabelValues(analyticsName, analyticsNamespace).Set(float64(health.InitialisingShards))
 		unassignedShards.WithLabelValues(analyticsName, analyticsNamespace).Set(float64(health.UnassignedShards))
 		pendingTasks.WithLabelValues(analyticsName, analyticsNamespace).Set(float64(health.PendingTasks))
+		switch health.Status {
+		case "green":
+			clusterStatus.WithLabelValues(analyticsName, analyticsNamespace).Set(2)
+		case "yellow":
+			clusterStatus.WithLabelValues(analyticsName, analyticsNamespace).Set(1)
+		case "red":
+			clusterStatus.WithLabelValues(analyticsName, analyticsNamespace).Set(0)
+		}
 	}
 }
 
