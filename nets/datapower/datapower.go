@@ -146,6 +146,16 @@ type APIDocumentCachingSummaryResponse struct {
 	}
 }
 
+// Response from the /mgmt/status/{domain}/ObjectInstanceCounts endpoint
+// of the DataPower REST Management Interface.
+type ObjectInstanceCountsResponse struct {
+	Links                Links `json:"_links"`
+	ObjectInstanceCounts []struct {
+		Class string
+		Count uint64
+	}
+}
+
 // Response from the /mgmt/status/{domain}/AnalyticsEndpointStatus2 endpoint of
 // the DataPower REST Management Interface.
 type AnalyticsEndpointStatus2Response struct {
@@ -234,6 +244,9 @@ func (d *DataPower) registerMetrics() {
 	// User defined policies Status
 	d.metrics["user_defined_policies_info"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_user_defined_policies_info"}, []string{"pod", "namespace", "policy", "version"})
 
+	// Object count
+	d.metrics["object_count"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_object_count_total"}, []string{"pod", "namespace", "type"})
+
 	// Invoke API Tests
 	d.metrics["invoke_api_size"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_invoke_api_size", Help: "invoke response content length"}, []string{"pod", "namespace", "name"})
 	d.metrics["invoke_api_time"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_invoke_api_time", Help: "invoke time taken in ms"}, []string{"pod", "namespace", "name"})
@@ -265,9 +278,9 @@ func (d *DataPower) findGW(dynamicClient dynamic.DynamicClient) error {
 		log.Log(alog.ERROR, "Failed to list pods: %v", err)
 		return err
 	}
-
+	log.Log(alog.TRACE, "pods found: ", len(pods.Items))
 	for _, pod := range pods.Items {
-		log.Log(alog.TRACE, "pod name: %v", pod.Name)
+		log.Log(alog.DEBUG, "pod name: %v", pod.Name)
 		var V5Compatible bool
 		//Check for APICONNECT_V5_COMPAT_MODE set to on
 		for _, env := range pod.Spec.Containers[0].Env {
@@ -277,6 +290,7 @@ func (d *DataPower) findGW(dynamicClient dynamic.DynamicClient) error {
 			}
 		}
 		ip := pod.Status.PodIP
+		log.Log(alog.DEBUG, "Pod IP is ", ip)
 		if d.Config.Host != "" {
 			log.Log(alog.TRACE, "Overriding host from %s to %s", ip, d.Config.Host)
 			ip = d.Config.Host
@@ -288,8 +302,7 @@ func (d *DataPower) findGW(dynamicClient dynamic.DynamicClient) error {
 		d.gatewayPeeringStatus(ip, pod.Name, pod.Namespace)
 		d.openTelemetryExporterStatus(ip, pod.Name, pod.Namespace)
 		d.apiConnectGatewayServiceStatus(ip, pod.Name, pod.Namespace)
-		// Still to do:
-		//  - Object Counts
+		d.objectCounts(ip, pod.Name, pod.Namespace)
 		if V5Compatible {
 			//  - [v5c] WSMAgentStatus
 			//  - [v5c] Cache Summary
@@ -411,6 +424,35 @@ func (d *DataPower) firmwareVersion(ip string, podName string, podNamespace stri
 	}
 
 	d.metrics["version"].WithLabelValues(podName, podNamespace, fw.FirmwareVersion3.Version, fw.FirmwareVersion3.Build).Set(1.0)
+}
+
+// *DataPower.objectCounts makes a request to the ObjectInstanceCounts endpoint
+// and stores the resulting values to their matching *prometheus.GaugeVec items
+// in the *DataPower.metrics map.
+func (d *DataPower) objectCounts(ip string, podName string, podNamespace string) {
+	log.Log(alog.TRACE, "Entering objectCounts(%s, %s, %s)", ip, podName, podNamespace)
+	response, err := d.invokeRestMgmt(ip, "mgmt/status/apiconnect/ObjectInstanceCounts")
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return
+	}
+
+	var oc ObjectInstanceCountsResponse
+	err = json.NewDecoder(response.Body).Decode(&oc)
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+	}
+	err2 := response.Body.Close()
+	if err2 != nil {
+		log.Log(alog.ERROR, err2.Error())
+	}
+	// Loop through the response array and publish metrics
+	for _, ocdata := range oc.ObjectInstanceCounts {
+		d.metrics["object_count"].WithLabelValues(podName, podNamespace, ocdata.Class).Set(float64(ocdata.Count))
+	}
+	if err != nil || err2 != nil {
+		return
+	}
 }
 
 // *DataPower.logTargetStatus makes a request to the LogTargetStatus endpoint
