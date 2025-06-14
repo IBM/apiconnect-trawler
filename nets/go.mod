@@ -1,4 +1,4 @@
-module nets
+module github.com/IBM/apiconnect-trawler/nets
 
 go 1.23.0
 
