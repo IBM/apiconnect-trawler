@@ -15,7 +15,6 @@ import (
 	"nets/manager"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/IBM/alchemy-logging/src/go/alog"
@@ -64,17 +63,14 @@ type CertReloader struct {
 func ReadConfig() Config {
 	var config Config
 
-	config_path := os.Getenv("CONFIG_PATH")
-	if config_path == "" {
-		config_path = "config.yaml"
+	config_path := "config.yaml"
+	// If the config/config.yaml exists then use the config instead
+	_, err := os.Stat("config/config.yaml")
+	if !os.IsNotExist(err) {
+		config_path = "config/config.yaml"
 	}
 
 	log.Log(alog.INFO, "Loading config from %s ", config_path)
-	
-	// Block paths starting with '/' or containing '..'
-	if strings.Contains(config_path, "..") {
-		log.Log(alog.ERROR, "invalid config path: %s", config_path)
-	}
 	// Open YAML file
 	file, err := os.Open(filepath.Clean(config_path))
 	if err != nil {
