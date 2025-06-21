@@ -25,12 +25,14 @@ import (
 )
 
 var (
-	promCounter = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "myapp_processed_ops_total",
-			Help: "The total number of processed events",
+	promInfo = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "trawler_version_info",
+			Help: "Trawler version and build info",
 		},
-		[]string{"collector"})
+		[]string{"version", "buildTime"})
+	Version   = "development"
+	BuildTime = ""
 )
 
 var log = alog.UseChannel("trawler")
@@ -129,6 +131,7 @@ func main() {
 		log.Log(alog.WARNING, "Error loading logging config from flags: ", err.Error())
 	}
 
+	promInfo.WithLabelValues(Version, BuildTime).Set(1)
 	// Initialise appropriate nets...
 	if config.Nets.APIConnect.Enabled {
 		a := apiconnect.APIConnect{}

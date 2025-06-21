@@ -13,7 +13,7 @@ RUN GOVERSION=$(egrep "^toolchain " go.mod | awk -Fgo '{print $2}') && \
 
 RUN go mod download 
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler -ldflags="-X 'main.Version=$(git describe --tags)' -X 'main.BuildTime=$(date +%Y%m%dT%H%M)'" .
 RUN dnf install ca-certificates --assumeyes
 RUN groupadd -r app && useradd -r -g app app
 
