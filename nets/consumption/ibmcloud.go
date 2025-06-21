@@ -126,8 +126,11 @@ func SendMetrics(isSuccess bool) error {
 	// Add query parameters
 	params := url.Values{}
 	mapId := os.Getenv(("mapID"))
-	baseURL := os.Getenv(("baseURL"))
+	baseURL := "https://pnp-api-oss.cloud.ibm.com/edbingestor/api/v1/edb/data"
 	params.Add("mapID", mapId)
+	if os.Getenv("ibmCloudEnv") == "test" {
+		baseURL = "https://pnp-api-oss.test.cloud.ibm.com/edbingestor/api/v1/edb/data"
+	}
 
 	// Construct the final URL with query parameters
 	finalURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
