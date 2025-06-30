@@ -35,6 +35,12 @@ var log = alog.UseChannel("apic")
 
 func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus prometheus.GaugeVec) {
 	subsystems := nets.GetCustomResourceList(group, version, resource, a.Config.Namespace)
+	
+	// Check if subsystems is nil to prevent segmentation fault
+	if subsystems == nil {
+		log.Log(alog.DEBUG, "No %s resources found in namespace %s", resource, a.Config.Namespace)
+		return
+	}
 
 	for _, subsystem := range subsystems.Items {
 		subsystemName := subsystem.Object["metadata"].(map[string]interface{})["name"].(string)

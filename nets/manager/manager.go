@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"nets"
+	"os"
 	"strings"
 	"time"
 
@@ -14,9 +15,10 @@ import (
 
 type Manager struct {
 	nets.BaseNet
-	Config  ManagerNetConfig
-	metrics map[string]*prometheus.GaugeVec
-	token   string
+	Config     ManagerNetConfig
+	metrics    map[string]*prometheus.GaugeVec
+	cloudToken nets.Token
+	orgToken   nets.Token
 }
 
 type ManagerNetConfig struct {
@@ -100,7 +102,6 @@ type ConfiguredGatewayService struct {
 var version string
 
 var invokeAPI = nets.InvokeAPI
-var getToken = nets.GetToken
 
 var log = alog.UseChannel("apim")
 
@@ -127,9 +128,9 @@ func (m *Manager) registerMetrics() {
 func (m *Manager) getTopologyInfo(management_url string) (CloudTopology, error) {
 
 	url := fmt.Sprintf("%s/api/cloud/topology", management_url)
-	log.Log(alog.DEBUG, url)
+	log.Log(alog.DEBUG2, url)
 
-	response, err := invokeAPI(url, "", m.token)
+	response, err := invokeAPI(url, "", m.cloudToken.Token)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return CloudTopology{}, err
@@ -150,9 +151,9 @@ func (m *Manager) getTopologyInfo(management_url string) (CloudTopology, error) 
 func (m *Manager) getWebhookStats(management_url string, org string, catalog string) {
 	///api/catalogs/{}/{}/configured-gateway-services?fields=add(gateway_processing_status,events)
 	url := fmt.Sprintf("%s/api/catalogs/%s/%s/configured-gateway-services?fields=add(gateway_processing_status,events)", management_url, org, catalog)
-	log.Log(alog.DEBUG, url)
+	log.Log(alog.DEBUG2, url)
 
-	response, err := invokeAPI(url, "", m.token)
+	response, err := invokeAPI(url, "", m.orgToken.Token)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return
@@ -160,7 +161,7 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 		defer response.Body.Close()
 		var cgsResponse ConfiguredGatewayServices
 		err = json.NewDecoder(response.Body).Decode(&cgsResponse)
-		log.Log(alog.DEBUG, "Webhook status total results:", cgsResponse.TotalResults)
+		log.Log(alog.DEBUG, "Webhook status total results: %v", cgsResponse.TotalResults)
 		for _, cgs := range cgsResponse.Results {
 			m.metrics["outstandingSent"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingSentEvents))
 			m.metrics["outstandingQueued"].WithLabelValues(org, catalog, cgs.Name, cgs.ServiceVersion).Set(float64(cgs.GatewayProcessingStatus.OutstandingQueuedEvents))
@@ -195,6 +196,33 @@ func (m *Manager) publishTopologyMetrics(topologyCount CountStruct, managementNa
 	m.metrics["spaceGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.Spaces)
 }
 
+func (m *Manager) getTokens(management_url string) error {
+	var err error
+
+	currentTimestamp := int(time.Now().Unix())
+
+	if m.cloudToken.Expires < currentTimestamp {
+		m.cloudToken, err = nets.GetToken(management_url, os.Getenv(("MGMT_CREDS")))
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+			return err
+		}
+	} else {
+		log.Log(alog.DEBUG, "Using cached cloud token")
+	}
+	if m.orgToken.Expires < currentTimestamp {
+		m.orgToken, err = nets.GetToken(management_url, os.Getenv(("ORG_CREDS")))
+		if err != nil {
+			log.Log(alog.ERROR, err.Error())
+			m.orgToken = m.cloudToken // If org creds are not set use cloud creds
+			log.Log(alog.WARNING, "Using cloud token for org level API calls as org creds are not set")
+		}
+	} else {
+		log.Log(alog.DEBUG, "Using cached org token")
+	}
+	return nil
+}
+
 func (m *Manager) findAPIM() error {
 
 	apims := nets.GetCustomResourceList("management.apiconnect.ibm.com", "v1beta1", "managementclusters", m.Config.Namespace)
@@ -216,12 +244,7 @@ func (m *Manager) findAPIM() error {
 				}
 				log.Log(alog.INFO, "Override host set - using %s for manager", m.Config.Host)
 			}
-			var err error
-			m.token, err = getToken(management_url)
-			if err != nil {
-				log.Log(alog.ERROR, err.Error())
-				return err
-			}
+			m.getTokens(management_url)
 			topology, err := m.getTopologyInfo(management_url)
 			if err != nil {
 				log.Log(alog.ERROR, err.Error())
