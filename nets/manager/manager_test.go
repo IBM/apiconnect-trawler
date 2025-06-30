@@ -126,7 +126,7 @@ func MockCustomResourceList(group, version, resource string) *unstructured.Unstr
 	return g
 }
 
-func MockGetToken(url string) (string, error) {
+func MockGetToken(url string, path string) (string, error) {
 	return "hello", nil
 }
 
