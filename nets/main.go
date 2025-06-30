@@ -179,12 +179,11 @@ func GetCustomResourceList(group, version, resource string) *unstructured.Unstru
 	return items
 }
 
-func GetToken(management_url string) (string, error) {
-	return getNewToken(management_url)
+func GetToken(management_url string, secret_path string) (string, error) {
+	return getNewToken(management_url, secret_path)
 }
 
-func getNewToken(management_url string) (string, error) {
-	secretPath := os.Getenv(("MGMT_CREDS"))
+func getNewToken(management_url string, secretPath string) (string, error) {
 	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
 	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
 	username, _ := os.ReadFile(filepath.Clean(secretPath + "/username"))

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"nets"
+	"os"
 	"strings"
 	"time"
 
@@ -14,9 +15,10 @@ import (
 
 type Manager struct {
 	nets.BaseNet
-	Config  ManagerNetConfig
-	metrics map[string]*prometheus.GaugeVec
-	token   string
+	Config     ManagerNetConfig
+	metrics    map[string]*prometheus.GaugeVec
+	cloudToken string
+	orgToken   string
 }
 
 type ManagerNetConfig struct {
@@ -129,7 +131,7 @@ func (m *Manager) getTopologyInfo(management_url string) (CloudTopology, error) 
 	url := fmt.Sprintf("%s/api/cloud/topology", management_url)
 	log.Log(alog.DEBUG, url)
 
-	response, err := invokeAPI(url, "", m.token)
+	response, err := invokeAPI(url, "", m.cloudToken)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return CloudTopology{}, err
@@ -152,7 +154,7 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 	url := fmt.Sprintf("%s/api/catalogs/%s/%s/configured-gateway-services?fields=add(gateway_processing_status,events)", management_url, org, catalog)
 	log.Log(alog.DEBUG, url)
 
-	response, err := invokeAPI(url, "", m.token)
+	response, err := invokeAPI(url, "", m.orgToken)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return
@@ -217,10 +219,16 @@ func (m *Manager) findAPIM() error {
 				log.Log(alog.INFO, "Override host set - using %s for manager", m.Config.Host)
 			}
 			var err error
-			m.token, err = getToken(management_url)
+			m.cloudToken, err = getToken(management_url, os.Getenv(("MGMT_CREDS")))
 			if err != nil {
 				log.Log(alog.ERROR, err.Error())
 				return err
+			}
+			m.orgToken, err = getToken(management_url, os.Getenv(("ORG_CREDS")))
+			if err != nil {
+				log.Log(alog.ERROR, err.Error())
+				m.orgToken = m.cloudToken // If org creds are not set use cloud creds
+				log.Log(alog.WARNING, "Using cloud token for org level API calls as org creds are not set")
 			}
 			topology, err := m.getTopologyInfo(management_url)
 			if err != nil {
