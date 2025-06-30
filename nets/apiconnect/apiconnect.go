@@ -37,6 +37,13 @@ func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus
 	log.Log(alog.DEBUG, "Getting status for %s/%s", group, version, resource)
 	subsystems := nets.GetCustomResourceList(group, version, resource, a.Config.Namespace)
 	log.Log(alog.DEBUG, "%v", subsystems)
+	
+	// Check if subsystems is nil to prevent segmentation fault
+	if subsystems == nil {
+		log.Log(alog.DEBUG, "No %s resources found in namespace %s", resource, a.Config.Namespace)
+		return
+	}
+
 	for _, subsystem := range subsystems.Items {
 		subsystemName := subsystem.Object["metadata"].(map[string]interface{})["name"].(string)
 		subsystemNamespace := subsystem.Object["metadata"].(map[string]interface{})["namespace"].(string)

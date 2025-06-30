@@ -29,6 +29,11 @@ type TokenResponse struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
+type Token struct {
+	Token   string `json:"token"`
+	Expires int    `json:"expires"`
+}
+
 type Client struct {
 	Clientset kubernetes.Interface
 }
@@ -179,20 +184,17 @@ func GetCustomResourceList(group, version, resource, namespace string) *unstruct
 	return items
 }
 
-func GetToken(management_url string) (string, error) {
-	return getNewToken(management_url)
-}
-
-func getNewToken(management_url string) (string, error) {
-	secretPath := os.Getenv(("MGMT_CREDS"))
+func GetToken(management_url string, secretPath string) (Token, error) {
+	log.Log(alog.DEBUG, "Getting token using %s", secretPath)
 	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
 	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
+	apikey, _ := os.ReadFile(filepath.Clean(secretPath + "/apikey"))
 	username, _ := os.ReadFile(filepath.Clean(secretPath + "/username"))
 	password, _ := os.ReadFile(filepath.Clean(secretPath + "/password"))
 	realm, _ := os.ReadFile(filepath.Clean(secretPath + "/realm"))
 	var postBody []byte
 	if (username != nil) && (password != nil) {
-		log.Log(alog.DEBUG, "Username and password are set")
+		log.Log(alog.DEBUG, "Using grant_type of password as username and password are set")
 		postBody, _ = json.Marshal(map[string]string{
 			"client_id":     string(clientId),
 			"client_secret": string(clientSecret),
@@ -201,7 +203,16 @@ func getNewToken(management_url string) (string, error) {
 			"realm":         string(realm),
 			"grant_type":    "password",
 		})
+	} else if apikey != nil {
+		log.Log(alog.INFO, "Using grant_type of api_key")
+		postBody, _ = json.Marshal(map[string]string{
+			"client_id":     string(clientId),
+			"api_key":       string(apikey),
+			"client_secret": string(clientSecret),
+			"grant_type":    "api_key",
+		})
 	} else {
+		log.Log(alog.INFO, "Using grant_type of client_credentials")
 		postBody, _ = json.Marshal(map[string]string{
 			"client_id":     string(clientId),
 			"client_secret": string(clientSecret),
@@ -223,23 +234,30 @@ func getNewToken(management_url string) (string, error) {
 
 	req, err := http.NewRequest("POST", url, tokenRequest)
 	if err != nil {
-		return "", err
+		return Token{}, err
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
 		response, err := client.Do(req)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
-			return "", err
+			return Token{}, err
 		} else {
 			defer response.Body.Close()
-			var bearerToken TokenResponse
-			err = json.NewDecoder(response.Body).Decode(&bearerToken)
-			if err != nil {
-				log.Log(alog.ERROR, err.Error())
-				return "", err
+			if response.StatusCode != 200 {
+				return Token{}, fmt.Errorf("unexpected status - got %s, expected 200", response.Status)
+			} else {
+				var bearerToken TokenResponse
+				err = json.NewDecoder(response.Body).Decode(&bearerToken)
+				if err != nil {
+					log.Log(alog.ERROR, err.Error())
+					return Token{}, err
+				}
+
+				return Token{
+					Token:   bearerToken.AccessToken,
+					Expires: int(time.Now().Unix()) + bearerToken.ExpiresIn}, nil
 			}
-			return bearerToken.AccessToken, nil
 		}
 	}
 }
