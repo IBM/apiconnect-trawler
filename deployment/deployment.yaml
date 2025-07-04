@@ -22,15 +22,15 @@ spec:
         - env:
           - name: MGMT_CREDS
             value: /app/management
+          - name: DP_CREDS
+            value: /app/datapower
           - name: ANALYTICS_CERTS
             value: /app/analytics
           - name: SECURE
             value: 'true'
           - name: CERT_PATH
             value: /app/certs
-          - name: CONFIG_PATH
-            value: /app/config/config.yaml
-          image: $IMAGE
+          image: ghcr.io/ibm/apiconnect-trawler/trawler:main
           imagePullPolicy: Always
           name: trawler
           ports:
@@ -49,10 +49,10 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
           volumeMounts:
-            - mountPath: /app/config
+            - mountPath: /config
               name: trawler-config
             - mountPath: /app/management
-              name: trawler-creds
+              name: mgmt-creds
             - mountPath: /app/datapower
               name: datapower-creds              
 # Update the following for your analytics deployment (replace analytics with your subsystem name)
@@ -71,7 +71,7 @@ spec:
             name: trawler-config
             optional: true
           name: trawler-config
-        - name: trawler-creds
+        - name: mgmt-creds
           secret:
             optional: true
             secretName: trawler-mgmt-creds

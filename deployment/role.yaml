@@ -1,0 +1,28 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: trawler
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - pods
+      - services
+      - secrets
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - management.apiconnect.ibm.com
+      - portal.apiconnect.ibm.com
+      - gateway.apiconnect.ibm.com
+      - analytics.apiconnect.ibm.com
+    resources:
+      - managementclusters
+      - analyticsclusters
+      - portalclusters
+      - gatewayclusters
+    verbs:
+      - get
+      - list

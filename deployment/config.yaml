@@ -7,6 +7,7 @@ logging:
 nets:
   apiconnect:
     enabled: true
+    namespace: apic-namespace
   analytics:
     enabled: true
     namespace: analytics-namespace
@@ -27,4 +28,4 @@ nets:
   manager:
     enabled: true
     process_org_metrics: false
-    namespace: manager-apic
+    namespace: manager-namespace

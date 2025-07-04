@@ -8,12 +8,15 @@ resources:
 - certificate.yaml
 - deployment.yaml
 - serviceaccount.yaml
-- clusterrole.yaml
-- clusterrolebinding.yaml
 - networkpolicy_trawler-a7s.yaml
 - networkpolicy_trawler.yaml
 - secret-mgmt.yaml
 - secret-dp.yaml
+# Uncomment cluster role and comment out role if you want to give cluster wide permissions
+- clusterrole.yaml
+- clusterrolebinding.yaml
+# - role.yaml
+# - rolebinding.yaml
 #  Uncomment the following if you are using prometheus-operator
 # - service.yaml
 # - servicemonitor.yaml

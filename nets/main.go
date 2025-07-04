@@ -163,7 +163,7 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 
 }
 
-func GetCustomResourceList(group, version, resource string) *unstructured.UnstructuredList {
+func GetCustomResourceList(group, version, resource, namespace string) *unstructured.UnstructuredList {
 	dynamicClient := GetDynamicKubeClient()
 	gvr := schema.GroupVersionResource{
 		Group:    group,
@@ -171,7 +171,7 @@ func GetCustomResourceList(group, version, resource string) *unstructured.Unstru
 		Resource: resource,
 	}
 
-	items, err := dynamicClient.Resource(gvr).List(context.Background(), v1.ListOptions{})
+	items, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		log.Log(alog.ERROR, "Failed to find %s: %v", resource, err)
 		return nil
