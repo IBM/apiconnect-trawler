@@ -1,7 +1,6 @@
 package analytics
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"nets"
@@ -12,8 +11,6 @@ import (
 	"github.com/IBM/alchemy-logging/src/go/alog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -26,6 +23,7 @@ type AnalyticsNetConfig struct {
 	Enabled   bool   `yaml:"enabled"`
 	Frequency int    `yaml:"frequency"`
 	Host      string `yaml:"host"`
+	Namespace string `yaml:"namespace"`
 }
 
 type ClusterHealth struct {
@@ -204,17 +202,8 @@ func (a *Analytics) ingestionStats(analytics_url string, analyticsName string, a
 }
 
 func (a *Analytics) findAnalytics(dynamicClient dynamic.DynamicClient) error {
-	a7s_gvr := schema.GroupVersionResource{
-		Group:    "analytics.apiconnect.ibm.com",
-		Version:  "v1beta1",
-		Resource: "analyticsclusters",
-	}
+	a7ss := nets.GetCustomResourceList("analytics.apiconnect.ibm.com", "v1beta1", "analyticsclusters", a.Config.Namespace)
 
-	a7ss, err := dynamicClient.Resource(a7s_gvr).List(context.Background(), v1.ListOptions{})
-	if err != nil {
-		log.Log(alog.ERROR, "error getting analyticscluster: %v\n", err)
-		return err
-	}
 	for _, a7s := range a7ss.Items {
 		analyticsName := a7s.Object["metadata"].(map[string]interface{})["name"].(string)
 		analyticsNamespace := a7s.Object["metadata"].(map[string]interface{})["namespace"].(string)

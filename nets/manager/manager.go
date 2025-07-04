@@ -25,6 +25,7 @@ type ManagerNetConfig struct {
 	Host              string `yaml:"host"`
 	ProcessOrgMetrics bool   `yaml:"process_org_metrics"`
 	MoreStats         bool   `yaml:"more_stats"`
+	Namespace         string `yaml:"namespace"`
 }
 
 type CountStruct struct {
@@ -98,7 +99,6 @@ type ConfiguredGatewayService struct {
 
 var version string
 
-var crlList = nets.GetCustomResourceList
 var invokeAPI = nets.InvokeAPI
 var getToken = nets.GetToken
 
@@ -197,7 +197,7 @@ func (m *Manager) publishTopologyMetrics(topologyCount CountStruct, managementNa
 
 func (m *Manager) findAPIM() error {
 
-	apims := crlList("management.apiconnect.ibm.com", "v1beta1", "managementclusters")
+	apims := nets.GetCustomResourceList("management.apiconnect.ibm.com", "v1beta1", "managementclusters", m.Config.Namespace)
 	if apims != nil {
 		for _, apim := range apims.Items {
 			managementName := apim.Object["metadata"].(map[string]interface{})["name"].(string)

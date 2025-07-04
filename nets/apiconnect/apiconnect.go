@@ -1,7 +1,6 @@
 package apiconnect
 
 import (
-	"context"
 	"fmt"
 	"nets"
 	"strings"
@@ -10,9 +9,6 @@ import (
 	"github.com/IBM/alchemy-logging/src/go/alog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 )
 
 type APIConnect struct {
@@ -28,6 +24,7 @@ type APIConnectNetConfig struct {
 	Host         string      `yaml:"host"`
 	HealthPrefix string      `yaml:"health_prefix"`
 	HealthLabel  HealthLabel `yaml:"health_label"`
+	Namespace    string      `yaml:"namespace"`
 }
 type HealthLabel struct {
 	Name  string `yaml:"name"`
@@ -36,12 +33,8 @@ type HealthLabel struct {
 
 var log = alog.UseChannel("apic")
 
-func (a *APIConnect) crdStatusMetrics(dynamicClient dynamic.DynamicClient, gvr schema.GroupVersionResource, crdStatus prometheus.GaugeVec) {
-	subsystems, err := dynamicClient.Resource(gvr).List(context.Background(), v1.ListOptions{})
-	if err != nil {
-		log.Log(alog.ERROR, "error getting subsystems %v", err)
-		return
-	}
+func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus prometheus.GaugeVec) {
+	subsystems := nets.GetCustomResourceList(group, version, resource, a.Config.Namespace)
 
 	for _, subsystem := range subsystems.Items {
 		subsystemName := subsystem.Object["metadata"].(map[string]interface{})["name"].(string)
@@ -66,9 +59,9 @@ func (a *APIConnect) crdStatusMetrics(dynamicClient dynamic.DynamicClient, gvr s
 				}
 				if version != "" {
 					if a.Config.HealthLabel.Name != "" {
-						a.healthStatus.WithLabelValues(gvr.Resource+"_"+subsystemName, version, a.Config.HealthLabel.Value).Set(healthValue)
+						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version, a.Config.HealthLabel.Value).Set(healthValue)
 					} else {
-						a.healthStatus.WithLabelValues(gvr.Resource+"_"+subsystemName, version).Set(healthValue)
+						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version).Set(healthValue)
 					}
 				}
 			}
@@ -136,31 +129,8 @@ func (a *APIConnect) registerMetrics() {
 		[]string{"name", "namespace", "type"})
 }
 func (a *APIConnect) Fish() {
-	dynamicClient := nets.GetDynamicKubeClient()
-
-	var a7s_gvr = schema.GroupVersionResource{
-		Group:    "analytics.apiconnect.ibm.com",
-		Version:  "v1beta1",
-		Resource: "analyticsclusters",
-	}
-	var ptl_gvr = schema.GroupVersionResource{
-		Group:    "portal.apiconnect.ibm.com",
-		Version:  "v1beta1",
-		Resource: "portalclusters",
-	}
-	var mgmt_gvr = schema.GroupVersionResource{
-		Group:    "management.apiconnect.ibm.com",
-		Version:  "v1beta1",
-		Resource: "managementclusters",
-	}
-	var gw_gvr = schema.GroupVersionResource{
-		Group:    "gateway.apiconnect.ibm.com",
-		Version:  "v1beta1",
-		Resource: "gatewayclusters",
-	}
-
-	a.crdStatusMetrics(*dynamicClient, gw_gvr, *a.metrics["gwCrdStatus"])
-	a.crdStatusMetrics(*dynamicClient, mgmt_gvr, *a.metrics["mgmtCrdStatus"])
-	a.crdStatusMetrics(*dynamicClient, ptl_gvr, *a.metrics["ptlCrdStatus"])
-	a.crdStatusMetrics(*dynamicClient, a7s_gvr, *a.metrics["a7sCrdStatus"])
+	a.crdStatusMetrics("gateway.apiconnect.ibm.com", "v1beta1", "gatewayclusters", *a.metrics["gwCrdStatus"])
+	a.crdStatusMetrics("management.apiconnect.ibm.com", "v1beta1", "managementclusters", *a.metrics["mgmtCrdStatus"])
+	a.crdStatusMetrics("portal.apiconnect.ibm.com", "v1beta1", "portalclusters", *a.metrics["ptlCrdStatus"])
+	a.crdStatusMetrics("analytics.apiconnect.ibm.com", "v1beta1", "analyticsclusters", *a.metrics["a7sCrdStatus"])
 }
