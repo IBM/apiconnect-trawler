@@ -7,6 +7,8 @@ To install trawler, you can make use of the sample yaml files within the [deploy
   - Select which nets you want to enable.
 - Adjustments to `secret-mgmt.yaml`
   - Set the credentials to use for connecting to cloud manager.
+- Adjustments to `secret-mgmt-org.yaml`
+  - Set the credentials to use for org level metrics - this should be a user added to the provider orgs.
 - Adjustments to `secret-dp.yaml`
   - Set the credentials to use for connecting to datapower.
 - Adjustments to `kustomization.yaml`:
@@ -39,11 +41,16 @@ namespace: apic-trawler
 
 ## API Manager credentials
 
-For the manager_net you will need to provide trawler credentials to make the API Calls - these can either be client_credentials grants or traditional username/password. For this you will need the following permissions:
+For the manager_net you will need to provide trawler credentials to make the API Calls - these can either be client_credentials grants, api key or traditional username/password. For this you will need the following permissions:
 
- - cloud:view
- - org:view
- - provider-org:view
+- cloud:view
+- org:view
+- provider-org:view
+
+The credentials secrets must contain client_id and client_secret for a client credentials grant or the CLI credentials and if you are not using a client credentials grant you will also need one of the following sets of keys:
+
+- api_key (a [platform REST API Key](https://www.ibm.com/docs/en/api-connect/10.0.8_lts?topic=applications-managing-platform-rest-api-keys))
+- username, password, realm (a user defined with appropriate access and the realm they are created in)
 
 ## Prometheus discovery
 
