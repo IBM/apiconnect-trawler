@@ -21,7 +21,9 @@ spec:
       containers:
         - env:
           - name: MGMT_CREDS
-            value: /app/management
+            value: /app/mgmt-cloud
+          - name: ORG_CREDS
+            value: /app/mgmt-org
           - name: DP_CREDS
             value: /app/datapower
           - name: ANALYTICS_CERTS
@@ -51,8 +53,10 @@ spec:
           volumeMounts:
             - mountPath: /config
               name: trawler-config
-            - mountPath: /app/management
-              name: mgmt-creds
+            - mountPath: /app/mgmt-cloud
+              name: mgmt-cloud-creds
+            - mountPath: /app/mgmt-org
+              name: mgmt-org-creds
             - mountPath: /app/datapower
               name: datapower-creds              
 # Update the following for your analytics deployment (replace analytics with your subsystem name)
@@ -71,10 +75,14 @@ spec:
             name: trawler-config
             optional: true
           name: trawler-config
-        - name: mgmt-creds
+        - name: mgmt-cloud-creds
           secret:
             optional: true
-            secretName: trawler-mgmt-creds
+            secretName: trawler-mgmt-cloud-creds
+        - name: mgmt-org-creds
+          secret:
+            optional: true
+            secretName: trawler-mgmt-org-creds
         - name: trawler-certificate
           secret:
             defaultMode: 420
