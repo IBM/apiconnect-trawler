@@ -13,6 +13,7 @@ import (
 	"nets/consumption"
 	"nets/datapower"
 	"nets/manager"
+
 	"os"
 	"path/filepath"
 	"time"
@@ -53,6 +54,11 @@ type Config struct {
 	Log struct {
 		Level string `yaml:"level"`
 	} `yaml:"logging"`
+	RemoteGateway struct {
+		Enabled  bool   `yaml:"enabled"`
+		ClientID string `yaml:"client_id"`
+		Url      string `yaml:"url"`
+	} `yaml:"remote_gateway"`
 }
 
 type CertReloader struct {
@@ -184,11 +190,16 @@ func main() {
 		log.Log(alog.INFO, "Enabled datapower net with %s frequency", dp.Frequency)
 		go dp.BackgroundFishing()
 	}
+	// Initialise remote gateway call home
+	if config.RemoteGateway.Enabled {
+		RemoteGatewayReport(config.RemoteGateway.ClientID, config.RemoteGateway.Url)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
 	// Bind dynamic log handler
 	mux.HandleFunc("/logging", alog.DynamicHandler)
+	mux.HandleFunc("/remotegw", RemoteGatewayMetricsHandler)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ok")
 	})

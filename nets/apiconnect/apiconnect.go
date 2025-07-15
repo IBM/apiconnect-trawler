@@ -34,6 +34,7 @@ type HealthLabel struct {
 var log = alog.UseChannel("apic")
 
 func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus prometheus.GaugeVec) {
+	log.Log(alog.DEBUG, "Getting status for %s/%s", group, version, resource)
 	subsystems := nets.GetCustomResourceList(group, version, resource, a.Config.Namespace)
 	
 	// Check if subsystems is nil to prevent segmentation fault
@@ -42,16 +43,20 @@ func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus
 		return
 	}
 
+	log.Log(alog.DEBUG, "%v", subsystems)
 	for _, subsystem := range subsystems.Items {
 		subsystemName := subsystem.Object["metadata"].(map[string]interface{})["name"].(string)
 		subsystemNamespace := subsystem.Object["metadata"].(map[string]interface{})["namespace"].(string)
 		version := subsystem.Object["status"].(map[string]interface{})["versions"].(map[string]interface{})["reconciled"].(string)
 		conditions := subsystem.Object["status"].(map[string]interface{})["conditions"].([]interface{})
+		condition := "Unknown"
+		log.Log(alog.DEBUG, "Getting status for %s/%s", subsystemName, subsystemNamespace)
 		for i := 0; i < len(conditions); i++ {
 			conditionType := conditions[i].(map[string]interface{})["type"].(string)
 			conditionStatus := conditions[i].(map[string]interface{})["status"].(string)
 			if conditionStatus == "True" {
 				crdStatus.WithLabelValues(subsystemName, subsystemNamespace, conditionType).Set(1)
+				condition = conditionType
 			} else {
 				crdStatus.WithLabelValues(subsystemName, subsystemNamespace, conditionType).Set(0)
 			}
@@ -65,9 +70,9 @@ func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus
 				}
 				if version != "" {
 					if a.Config.HealthLabel.Name != "" {
-						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version, a.Config.HealthLabel.Value).Set(healthValue)
+						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version, condition, subsystemName, subsystemNamespace, a.Config.HealthLabel.Value).Set(healthValue)
 					} else {
-						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version).Set(healthValue)
+						a.healthStatus.WithLabelValues(resource+"_"+subsystemName, version, condition, subsystemName, subsystemNamespace).Set(healthValue)
 					}
 				}
 			}
@@ -81,7 +86,7 @@ func (a *APIConnect) BackgroundFishing() {
 	interval := a.Frequency
 	ticker := time.NewTicker(interval)
 	var metricName = "health_status"
-	var metricLabels = []string{"component", "version"}
+	var metricLabels = []string{"component", "version", "condition", "name", "namespace"}
 
 	if a.Config.HealthLabel.Name != "" {
 		metricLabels = append(metricLabels, a.Config.HealthLabel.Name)
