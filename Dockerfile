@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi9/ubi:latest AS build
 WORKDIR /app/
 
 RUN dnf upgrade --assumeyes
-RUN dnf install -y curl jq tar --allowerasing
+RUN dnf install -y curl jq tar git --allowerasing
 COPY . .
 # Set the Go version dynamically by fetching the latest version
 RUN GOVERSION=$(egrep "^toolchain " go.mod | awk -Fgo '{print $2}') && \
