@@ -12,7 +12,7 @@ ENV PATH $PATH:$GOPATH/bin
 COPY . .
 RUN go mod download 
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler -ldflags="-X 'main.Version=$(git describe --tags)' -X 'main.BuildTime=$(date +%Y%m%dT%H%M)'" .
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal
 
@@ -34,4 +34,4 @@ USER 1001:0
 EXPOSE 63512
 ENV CONFIG_PATH=/app/config/config.yaml
 
-CMD ["/app/trawler"]
+CMD ["/app/trawler", "-c", "/app/config/config.yaml"]
