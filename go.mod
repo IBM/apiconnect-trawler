@@ -1,7 +1,7 @@
 module rickymoorhouse/exporter
 
 go 1.24.0
-
+godebug fips140=only
 toolchain go1.24.5
 
 require (
