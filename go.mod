@@ -9,7 +9,7 @@ toolchain go1.24.6
 require (
 	github.com/IBM/alchemy-logging/src/go v1.0.3
 	github.com/prometheus/client_golang v1.22.0
-	github.com/prometheus/client_model v0.6.1
+	github.com/prometheus/client_model v0.6.2
 	gopkg.in/yaml.v3 v3.0.1
 	nets v0.0.0-00010101000000-000000000000
 )
@@ -47,7 +47,7 @@ require (
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
-	google.golang.org/protobuf v1.36.5 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.32.1 // indirect
