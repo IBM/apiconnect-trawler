@@ -258,6 +258,11 @@ func ListenAndServe(mux *http.ServeMux, listenPort string) (*http.Server, error)
 			ClientAuth:     tls.RequireAndVerifyClientCert, // pragma: allowlist secret
 			ClientCAs:      certPool,
 			RootCAs:        certPool,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+			PreferServerCipherSuites: true,
 		}
 		srv.TLSConfig = &tlsConfig
 		log.Log(alog.INFO, "Listening securely on https://0.0.0.0:%s/metrics", listenPort)
