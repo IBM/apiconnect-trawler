@@ -130,12 +130,24 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 				RootCAs:            caCertPool,
 				Certificates:       []tls.Certificate{cert},
 				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+				MinVersion:         tls.VersionTLS12,
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				},
+				PreferServerCipherSuites: true,
 			},
 		}
 	} else {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+				MinVersion:         tls.VersionTLS12,
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				},
+				PreferServerCipherSuites: true,
 			},
 		}
 	}
@@ -226,6 +238,12 @@ func GetToken(management_url string, secretPath string) (Token, error) {
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+				MinVersion:         tls.VersionTLS12,
+				CipherSuites: []uint16{
+					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				},
+				PreferServerCipherSuites: true,
 			},
 		},
 	}
