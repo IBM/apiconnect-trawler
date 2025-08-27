@@ -7,7 +7,7 @@ toolchain go1.24.6
 require (
 	github.com/IBM/alchemy-logging/src/go v1.0.3
 	github.com/prometheus/client_golang v1.23.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
 )
