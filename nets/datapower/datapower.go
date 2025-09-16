@@ -634,12 +634,11 @@ func (d *DataPower) openTelemetryExporterStatus(ip string, podName string, podNa
 	}
 
 	body, err := io.ReadAll(response.Body)
+	defer response.Body.Close()
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return
 	}
-
-	defer response.Body.Close()
 
 	var otelExporterStatusRes OpenTelemetryExporterStatusResponse
 	err = json.Unmarshal(body, &otelExporterStatusRes)

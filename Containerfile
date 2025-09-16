@@ -32,6 +32,6 @@ RUN microdnf upgrade -y --refresh --best --nodocs --noplugins --setopt=install_w
 USER 1001:0
 
 EXPOSE 63512
-ENV CONFIG_PATH=/app/config/config.yaml
+WORKDIR /app/
 
-CMD ["/app/trawler", "-c", "/app/config/config.yaml"]
+CMD ["/app/trawler"]
