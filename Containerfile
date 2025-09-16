@@ -34,4 +34,4 @@ USER 1001:0
 EXPOSE 63512
 ENV CONFIG_PATH=/app/config/config.yaml
 
-CMD ["/app/trawler", "-c", "/app/config/config.yaml"]
+CMD ["/app/trawler"]
