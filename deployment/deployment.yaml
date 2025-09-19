@@ -51,7 +51,7 @@ spec:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
           volumeMounts:
-            - mountPath: /config
+            - mountPath: /app/config
               name: trawler-config
             - mountPath: /app/mgmt-cloud
               name: mgmt-cloud-creds
