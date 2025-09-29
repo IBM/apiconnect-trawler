@@ -12,7 +12,7 @@ ENV PATH $PATH:$GOPATH/bin
 COPY . .
 RUN go mod download 
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ./out/trawler -ldflags="-X 'main.Version=$(git describe --tags)' -X 'main.BuildTime=$(date +%Y%m%dT%H%M)'" .
+RUN GODEBUG=fips140=on GOFIPS140=v1.0.0 GO111MODULE=on CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ./out/trawler -ldflags="-X 'main.Version=$(git describe --tags)' -X 'main.BuildTime=$(date +%Y%m%dT%H%M)'" .
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal
 
