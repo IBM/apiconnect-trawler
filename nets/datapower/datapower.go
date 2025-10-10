@@ -25,6 +25,7 @@ import (
 
 type DataPower struct {
 	nets.BaseNet
+	ErrorCount    int
 	Config        DataPowerNetConfig
 	metrics       map[string]*prometheus.GaugeVec
 	invokeCounter *prometheus.CounterVec
@@ -32,15 +33,17 @@ type DataPower struct {
 
 type DataPowerNetConfig struct {
 	Enabled   bool   `yaml:"enabled"`
+	Insecure  bool   `yaml:"insecure"`
 	Frequency int    `yaml:"frequency"`
 	Host      string `yaml:"host"`
 	Username  string `yaml:"username"`
 	TimeOut   int    `yaml:"timeout"`
 	Namespace string `yaml:"namespace"`
 	APITests  struct {
-		Enabled bool      `yaml:"enabled"`
-		TimeOut int       `yaml:"timeout"`
-		APIs    []APITest `yaml:"apis"`
+		Enabled  bool      `yaml:"enabled"`
+		Insecure bool      `yaml:"insecure"`
+		TimeOut  int       `yaml:"timeout"`
+		APIs     []APITest `yaml:"apis"`
 	} `yaml:"api_tests"`
 }
 
@@ -198,6 +201,8 @@ func (d *DataPower) registerMetrics() {
 
 	// Version
 	d.metrics["version"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_version_info"}, []string{"pod", "namespace", "version", "build"})
+	// Error tracking
+	d.metrics["error_count"] = (*prometheus.GaugeVec)(promauto.NewCounterVec(prometheus.CounterOpts{Name: "trawler_errors_total"}, []string{"net"}))
 
 	// TCP Summary
 	d.metrics["tcp_established_total"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_tcp_established_total"}, []string{"pod", "namespace"})
@@ -325,7 +330,7 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+			InsecureSkipVerify: d.Config.APITests.Insecure, // Configurable by user
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
@@ -349,6 +354,7 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 			log.Log(alog.ERROR, err.Error())
 			return
 		}
+		req.Header.Set("User-Agent", "trawler/"+nets.Version)
 
 		startTime := time.Now()
 
@@ -695,8 +701,26 @@ func (d *DataPower) apiConnectGatewayServiceStatus(ip string, podName string, po
 	err = json.Unmarshal(body, &apiConnectGatewayService)
 
 	if err != nil {
-		log.Log(alog.ERROR, err.Error())
-		return
+		log.Log(alog.ERROR, "Error unmarshaling APIConnectGatewayService: %v", err)
+
+		// If there is only one policy object, the response might be coming as an object instead of an array.
+		// Try unmarshalling it as a single object and append to the slice
+		var tempResponse struct {
+			Links                    Links `json:"_links"`
+			APIConnectGatewayService struct {
+				UserDefinedPolicies Identifier `json:"UserDefinedPolicies"`
+			}
+		}
+
+		err := json.Unmarshal(body, &tempResponse)
+		if err != nil {
+			log.Log(alog.ERROR, "Failed to unmarshal as single object: %v", err)
+			return
+		}
+
+		log.Log(alog.DEBUG, "Successfully unmarshaled as single UserDefinedPolicies object")
+		apiConnectGatewayService.Links = tempResponse.Links
+		apiConnectGatewayService.APIConnectGatewayService.UserDefinedPolicies = []Identifier{tempResponse.APIConnectGatewayService.UserDefinedPolicies}
 	}
 
 	for _, target := range apiConnectGatewayService.APIConnectGatewayService.UserDefinedPolicies {
@@ -736,7 +760,7 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+			InsecureSkipVerify: d.Config.Insecure, // Configurable by user
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
@@ -758,6 +782,7 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 		log.Log(alog.ERROR, err.Error())
 		return nil, err
 	}
+	req.Header.Set("User-Agent", "trawler/"+nets.Version)
 
 	req.SetBasicAuth(string(username), string(password))
 
@@ -777,8 +802,8 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 func (m *DataPower) BackgroundFishing() {
 	m.registerMetrics()
 	interval := m.Frequency
-	ticker := time.NewTicker(interval)
 	// Start the datapower loop
+	ticker := time.NewTicker(interval)
 	for range ticker.C {
 		if !m.Disabled {
 			log.Log(alog.DEBUG, "Fishing for datapower")
@@ -792,7 +817,11 @@ func (d *DataPower) Fish() {
 
 	err := d.findGW(*dynamicClient)
 	if err != nil {
-		log.Log(alog.FATAL, "disabled manager net")
-		d.Disabled = true
+		d.metrics["error_count"].WithLabelValues("datapower").Inc()
+		d.ErrorCount = d.ErrorCount + 1
+		log.Log(alog.ERROR, "Error count %d", d.ErrorCount)
+	} else {
+		d.ErrorCount = 0
+		d.metrics["error_count"].WithLabelValues("datapower").Set(0)
 	}
 }

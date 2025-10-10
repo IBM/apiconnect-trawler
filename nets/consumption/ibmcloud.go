@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"nets"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,11 +53,17 @@ func getIAMToken() (string, error) {
 	form.Set("apikey", string(apiKey))
 	log.Log(alog.INFO, "Received token from IAM")
 
-	resp, err := http.Post(
-		IAM_URL+"/identity/token",
-		"application/x-www-form-urlencoded",
-		strings.NewReader(form.Encode()),
-	)
+	// Create a request with User-Agent header
+	req, err := http.NewRequest("POST", IAM_URL+"/identity/token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "trawler/"+nets.Version)
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -142,6 +149,7 @@ func SendMetrics(isSuccess bool) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "trawler/"+nets.Version)
 
 	resp, err := client.Do(req)
 	if err != nil {

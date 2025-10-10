@@ -24,6 +24,7 @@ type Consumption struct {
 
 type ConsumptionNetConfig struct {
 	Enabled   bool   `yaml:"enabled"`
+	Insecure  bool   `yaml:"insecure"`
 	Frequency int    `yaml:"frequency"`
 	CrnMask   string `yaml:"crn_mask"`
 	Namespace string `yaml:"namespace"`
@@ -51,7 +52,7 @@ func (a *Consumption) apiCallCount(analytics_url string) {
 	//url := fmt.Sprintf("%s/cloud/dashboards/status?%s", analytics_url, timeframe)
 	url := fmt.Sprintf("%s/cloud/events/count?%s", analytics_url, timeframe)
 	log.Log(alog.INFO, "Calling %s", url)
-	response, err := nets.InvokeAPI(url, certPath, "")
+	response, err := nets.InvokeAPI(url, certPath, "", a.Config.Insecure, true)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	} else {
