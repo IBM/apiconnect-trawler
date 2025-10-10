@@ -3,6 +3,7 @@ package manager
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"nets"
 	"os"
 	"strings"
@@ -25,9 +26,11 @@ type ManagerNetConfig struct {
 	Enabled           bool   `yaml:"enabled"`
 	Frequency         int    `yaml:"frequency"`
 	Host              string `yaml:"host"`
+	Insecure          bool   `yaml:"insecure"`
 	ProcessOrgMetrics bool   `yaml:"process_org_metrics"`
 	MoreStats         bool   `yaml:"more_stats"`
 	Namespace         string `yaml:"namespace"`
+	CertPath          string `yaml:"cert_path"`
 }
 
 type CountStruct struct {
@@ -101,7 +104,9 @@ type ConfiguredGatewayService struct {
 
 var version string
 
-var invokeAPI = nets.InvokeAPI
+func invokeAPI(url string, certPath string, token string, insecure bool) (*http.Response, error) {
+	return nets.InvokeAPI(url, certPath, token, insecure, false)
+}
 
 var log = alog.UseChannel("apim")
 
@@ -130,7 +135,7 @@ func (m *Manager) getTopologyInfo(management_url string) (CloudTopology, error) 
 	url := fmt.Sprintf("%s/api/cloud/topology", management_url)
 	log.Log(alog.DEBUG2, url)
 
-	response, err := invokeAPI(url, "", m.cloudToken.Token)
+	response, err := invokeAPI(url, m.Config.CertPath, m.cloudToken.Token, m.Config.Insecure)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return CloudTopology{}, err
@@ -153,7 +158,7 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 	url := fmt.Sprintf("%s/api/catalogs/%s/%s/configured-gateway-services?fields=add(gateway_processing_status,events)", management_url, org, catalog)
 	log.Log(alog.DEBUG2, url)
 
-	response, err := invokeAPI(url, "", m.orgToken.Token)
+	response, err := invokeAPI(url, m.Config.CertPath, m.orgToken.Token, m.Config.Insecure)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 		return
@@ -223,61 +228,119 @@ func (m *Manager) getTokens(management_url string) error {
 	return nil
 }
 
+type ManagementClusterInfo struct {
+	Name      string
+	Namespace string
+	Version   string
+	URL       string
+}
+
 func (m *Manager) findAPIM() error {
-
+	m.Config.CertPath = os.Getenv("MGMT_CERTS")
 	apims := nets.GetCustomResourceList("management.apiconnect.ibm.com", "v1beta1", "managementclusters", m.Config.Namespace)
-	if apims != nil {
-		for _, apim := range apims.Items {
-			managementName := apim.Object["metadata"].(map[string]interface{})["name"].(string)
-			managementNamespace := apim.Object["metadata"].(map[string]interface{})["namespace"].(string)
-			version = apim.Object["status"].(map[string]interface{})["versions"].(map[string]interface{})["reconciled"].(string)
-			log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s", managementName, managementNamespace, version)
+	if apims == nil {
+		return nil
+	}
 
-			services := apim.Object["status"].(map[string]interface{})["services"].(map[string]interface{})
-
-			management_url := fmt.Sprintf("https://%s.%s.svc:2000", services["juhu"], managementNamespace)
-			log.Log(alog.INFO, "URL to use is %s", fmt.Sprintf("%s.%s.svc:2000", services["juhu"], managementNamespace))
-			if m.Config.Host != "" {
-				management_url = m.Config.Host
-				if !strings.HasPrefix(management_url, "https://") {
-					management_url = "https://" + management_url
-				}
-				log.Log(alog.INFO, "Override host set - using %s for manager", m.Config.Host)
-			}
-			m.getTokens(management_url)
-			topology, err := m.getTopologyInfo(management_url)
-			if err != nil {
-				log.Log(alog.ERROR, err.Error())
-				return err
-			}
-
-			//		m.metrics["cloudInfo"].WithLabelValues(managementName, managementNamespace, version, topologyInfo.CloudId, topologyInfo.CloudName).Set(1)
-			// Publish cloud scoped count metrics
-			m.publishTopologyMetrics(topology.Counts, managementName, managementNamespace, "cloud", "")
-			for _, org := range topology.Orgs.Results {
-				if m.Config.ProcessOrgMetrics {
-					for _, catalog := range org.Catalogs.Results {
-						// Retreive catalog level webhook information
-						m.getWebhookStats(management_url, org.Name, catalog.Name)
-						// Maybe Publish catalog scoped count metrics? - should be an option
-						// m.publishTopologyMetrics(catalog.Counts, managementName, managementNamespace, "catalog", catalog.Name)
-						// TODO: Expand this to cover all objects we want to total at org level
-						org.Counts.Apis += catalog.Counts.Apis
-						org.Counts.Products += catalog.Counts.Products
-						org.Counts.ConsumerApps += catalog.Counts.Apps // At catalog level consumer_apps becomes apps
-						org.Counts.ConsumerOrgs += catalog.Counts.ConsumerOrgs
-						org.Counts.Spaces += catalog.Counts.Spaces
-						org.Counts.Subscriptions += catalog.Counts.Subscriptions
-					}
-					org.Counts.Catalogs = float64(len(org.Catalogs.Results))
-					// Publish org scoped count metrics
-					m.publishTopologyMetrics(org.Counts, managementName, managementNamespace, "org", org.Name)
-				}
-
-			}
+	for _, apim := range apims.Items {
+		if err := m.processManagementCluster(apim); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (m *Manager) processManagementCluster(apim interface{}) error {
+	// Extract management cluster information
+	clusterInfo := extractManagementClusterInfo(apim)
+	log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s", 
+		clusterInfo.Name, clusterInfo.Namespace, clusterInfo.Version)
+	
+	// Set global version (maintain compatibility with original code)
+	version = clusterInfo.Version
+
+	// Get tokens for API calls
+	if err := m.getTokens(clusterInfo.URL); err != nil {
+		return err
+	}
+
+	// Get topology information
+	topology, err := m.getTopologyInfo(clusterInfo.URL)
+	if err != nil {
+		log.Log(alog.ERROR, err.Error())
+		return err
+	}
+
+	// Publish cloud scoped metrics
+	m.publishTopologyMetrics(topology.Counts, clusterInfo.Name, clusterInfo.Namespace, "cloud", "")
+	
+	// Process organizations if enabled
+	if m.Config.ProcessOrgMetrics {
+		m.processOrganizations(topology, clusterInfo)
+	}
+	
+	return nil
+}
+
+func (m *Manager) processOrganizations(topology CloudTopology, clusterInfo ManagementClusterInfo) {
+	for _, org := range topology.Orgs.Results {
+		// Process catalogs and aggregate metrics
+		for _, catalog := range org.Catalogs.Results {
+			// Get webhook stats for this catalog
+			m.getWebhookStats(clusterInfo.URL, org.Name, catalog.Name)
+			
+			// Aggregate catalog metrics to org level
+			aggregateCatalogMetricsToOrg(&org.Counts, catalog.Counts)
+		}
+		
+		// Set catalog count based on actual number of catalogs
+		org.Counts.Catalogs = float64(len(org.Catalogs.Results))
+		
+		// Publish org scoped metrics
+		m.publishTopologyMetrics(org.Counts, clusterInfo.Name, clusterInfo.Namespace, "org", org.Name)
+	}
+}
+
+func aggregateCatalogMetricsToOrg(orgCounts *CountStruct, catalogCounts CountStruct) {
+	orgCounts.Apis += catalogCounts.Apis
+	orgCounts.Products += catalogCounts.Products
+	orgCounts.ConsumerApps += catalogCounts.Apps // At catalog level consumer_apps becomes apps
+	orgCounts.ConsumerOrgs += catalogCounts.ConsumerOrgs
+	orgCounts.Spaces += catalogCounts.Spaces
+	orgCounts.Subscriptions += catalogCounts.Subscriptions
+}
+
+func extractManagementClusterInfo(apim interface{}) ManagementClusterInfo {
+	metadata := apim.(map[string]interface{})["metadata"].(map[string]interface{})
+	status := apim.(map[string]interface{})["status"].(map[string]interface{})
+	services := status["services"].(map[string]interface{})
+	
+	info := ManagementClusterInfo{
+		Name:      metadata["name"].(string),
+		Namespace: metadata["namespace"].(string),
+		Version:   status["versions"].(map[string]interface{})["reconciled"].(string),
+	}
+	
+	// Build the management URL with override handling
+	defaultURL := fmt.Sprintf("https://%s.%s.svc:2000", services["juhu"], info.Namespace)
+	log.Log(alog.INFO, "URL to use is %s", fmt.Sprintf("%s.%s.svc:2000", services["juhu"], info.Namespace))
+	
+	hostOverride := os.Getenv("MGMT_HOST")
+	info.URL = defaultURL
+	
+	if hostOverride != "" {
+		info.URL = ensureHTTPSPrefix(hostOverride)
+		log.Log(alog.INFO, "Override host set - using %s for manager", hostOverride)
+	}
+	
+	return info
+}
+
+func ensureHTTPSPrefix(url string) string {
+	if !strings.HasPrefix(url, "https://") {
+		return "https://" + url
+	}
+	return url
 }
 
 func (m *Manager) BackgroundFishing() {

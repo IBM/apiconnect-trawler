@@ -138,6 +138,10 @@ func main() {
 	}
 
 	promInfo.WithLabelValues(Version, BuildTime).Set(1)
+
+	// Set the version in the nets package
+	nets.SetVersion(Version)
+
 	// Initialise appropriate nets...
 	if config.Nets.APIConnect.Enabled {
 		a := apiconnect.APIConnect{}
@@ -192,7 +196,7 @@ func main() {
 	}
 	// Initialise remote gateway call home
 	if config.RemoteGateway.Enabled {
-		RemoteGatewayReport(config.RemoteGateway.ClientID, config.RemoteGateway.Url)
+		go RemoteGatewayReport(config.RemoteGateway.ClientID, config.RemoteGateway.Url)
 	}
 
 	mux := http.NewServeMux()
@@ -203,7 +207,6 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "ok")
 	})
-
 	listenPort := "63512"
 	if config.Prometheus.Port != "" {
 		listenPort = config.Prometheus.Port

@@ -50,7 +50,7 @@ func PostMetrics(ClientId, Url string) {
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", fmt.Sprintf("Trawler/%s", Version))
+	req.Header.Add("User-Agent", "trawler/"+Version)
 	req.Header.Add("X-IBM-Client-ID", ClientId)
 
 	response, err := client.Do(req)

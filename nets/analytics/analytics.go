@@ -21,6 +21,7 @@ type Analytics struct {
 
 type AnalyticsNetConfig struct {
 	Enabled   bool   `yaml:"enabled"`
+	Insecure  bool   `yaml:"insecure"`
 	Frequency int    `yaml:"frequency"`
 	Host      string `yaml:"host"`
 	Namespace string `yaml:"namespace"`
@@ -115,7 +116,7 @@ func (a *Analytics) clusterHealth(analytics_url string, analyticsName string, an
 	certPath := os.Getenv("ANALYTICS_CERTS")
 	url := fmt.Sprintf("%s/cloud/clustermgmt/storage/cluster/health", analytics_url)
 	log.Log(alog.INFO, "Calling %s", url)
-	response, err := nets.InvokeAPI(url, certPath, "")
+	response, err := nets.InvokeAPI(url, certPath, "", a.Config.Insecure, true)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	} else {
@@ -154,7 +155,7 @@ func (a *Analytics) apiCallCount(analytics_url string, analyticsName string, ana
 	timeframe := "timeframe=last1hour"
 	url := fmt.Sprintf("%s/cloud/dashboards/status?%s", analytics_url, timeframe)
 	log.Log(alog.INFO, "Calling %s", url)
-	response, err := nets.InvokeAPI(url, certPath, "")
+	response, err := nets.InvokeAPI(url, certPath, "", a.Config.Insecure, true)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	} else {
@@ -179,7 +180,7 @@ func (a *Analytics) ingestionStats(analytics_url string, analyticsName string, a
 	certPath := os.Getenv("ANALYTICS_CERTS")
 	url := fmt.Sprintf("%s/cloud/clustermgmt/ingestion/node/stats/pipelines", analytics_url)
 	log.Log(alog.INFO, "Calling %s", url)
-	response, err := nets.InvokeAPI(url, certPath, "")
+	response, err := nets.InvokeAPI(url, certPath, "", a.Config.Insecure, true)
 	if err != nil {
 		log.Log(alog.ERROR, err.Error())
 	} else {

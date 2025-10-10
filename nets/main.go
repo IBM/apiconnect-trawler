@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,6 +60,7 @@ type Netty struct {
 
 var log = alog.UseChannel("nets")
 var dynamicClient *dynamic.DynamicClient
+var Version string // Store the version from main package
 
 func Enable(n BaseNet, frequency int) {
 	log.Log(alog.INFO, "Enabling Base Net", n.String())
@@ -109,15 +111,18 @@ func GetDynamicKubeClient() *dynamic.DynamicClient {
 	return dynamicClient
 }
 
-func InvokeAPI(url string, certPath string, token string) (*http.Response, error) {
+func InvokeAPI(url string, certPath string, token string, insecure, mtls bool) (*http.Response, error) {
 
 	client := &http.Client{}
-
+	// Set up the trust for the CA Certificate
+	caCertPool := x509.NewCertPool()
 	if certPath != "" {
-		// Create a HTTPS client and supply the certificates
-		caCertPool := x509.NewCertPool()
 		caCert, _ := os.ReadFile(filepath.Clean(certPath + "/ca.crt"))
 		caCertPool.AppendCertsFromPEM(caCert)
+	}
+	// Create a HTTPS client and supply the client certificate
+	var certificates []tls.Certificate
+	if mtls {
 		cert, err := tls.LoadX509KeyPair(
 			fmt.Sprintf("%s/tls.crt", certPath),
 			fmt.Sprintf("%s/tls.key", certPath),
@@ -125,39 +130,26 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 		}
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:            caCertPool,
-				Certificates:       []tls.Certificate{cert},
-				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
-				MinVersion:         tls.VersionTLS12,
-				CipherSuites: []uint16{
-					tls.TLS_AES_256_GCM_SHA384,
-					tls.TLS_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				},
-				PreferServerCipherSuites: true,
-			},
-		}
+		certificates = []tls.Certificate{cert}
 	} else {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
-				MinVersion:         tls.VersionTLS12,
-				CipherSuites: []uint16{
-					tls.TLS_AES_256_GCM_SHA384,
-					tls.TLS_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-					tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-					tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				},
-				PreferServerCipherSuites: true,
+		certificates = nil
+	}
+	client.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:            caCertPool,
+			Certificates:       certificates,
+			InsecureSkipVerify: insecure, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+			MinVersion:         tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_AES_256_GCM_SHA384,
+				tls.TLS_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			},
-		}
+			PreferServerCipherSuites: true,
+		},
 	}
 
 	if !strings.HasPrefix(url, "http") {
@@ -171,6 +163,7 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 		return nil, err
 	}
 	req.Header.Add("Accept", "application/json")
+	req.Header.Add("User-Agent", "trawler/"+Version)
 
 	if token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -181,6 +174,17 @@ func InvokeAPI(url string, certPath string, token string) (*http.Response, error
 		return nil, err
 	}
 	if response.StatusCode != 200 {
+		// Read the body content for logging
+		bodyBytes, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Log(alog.ERROR, "Failed to read response body: %v", err)
+		} else {
+			log.Log(alog.DEBUG, "Calling %s, returned %s", url, string(bodyBytes))
+		}
+		// Close the original body
+		response.Body.Close()
+		// Create a new body with the same content for any subsequent readers
+		response.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		return nil, fmt.Errorf("unexpected status - got %s, expected 200", response.Status)
 	}
 
@@ -268,6 +272,7 @@ func GetToken(management_url string, secretPath string) (Token, error) {
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", "trawler/"+Version)
 		response, err := client.Do(req)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
@@ -290,4 +295,9 @@ func GetToken(management_url string, secretPath string) (Token, error) {
 			}
 		}
 	}
+}
+
+// SetVersion sets the version from the main package
+func SetVersion(version string) {
+	Version = version
 }
