@@ -138,7 +138,7 @@ func InvokeAPI(url string, certPath string, token string, insecure, mtls bool) (
 		TLSClientConfig: &tls.Config{
 			RootCAs:            caCertPool,
 			Certificates:       certificates,
-			InsecureSkipVerify: insecure, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+			InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
@@ -208,7 +208,7 @@ func GetCustomResourceList(group, version, resource, namespace string) *unstruct
 	return items
 }
 
-func GetToken(management_url string, secretPath string) (Token, error) {
+func GetToken(management_url string, secretPath string, insecure bool) (Token, error) {
 	log.Log(alog.DEBUG, "Getting token using %s", secretPath)
 	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
 	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
@@ -249,7 +249,7 @@ func GetToken(management_url string, secretPath string) (Token, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, // #nosec G402 -- Only Insecure TLS allowed for in-cluster communications
+				InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user
 				MinVersion:         tls.VersionTLS12,
 				CipherSuites: []uint16{
 					tls.TLS_AES_256_GCM_SHA384,

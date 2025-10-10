@@ -207,7 +207,7 @@ func (m *Manager) getTokens(management_url string) error {
 	currentTimestamp := int(time.Now().Unix())
 
 	if m.cloudToken.Expires < currentTimestamp {
-		m.cloudToken, err = nets.GetToken(management_url, os.Getenv(("MGMT_CREDS")))
+		m.cloudToken, err = nets.GetToken(management_url, os.Getenv(("MGMT_CREDS")), m.Config.Insecure)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 			return err
@@ -216,7 +216,7 @@ func (m *Manager) getTokens(management_url string) error {
 		log.Log(alog.DEBUG, "Using cached cloud token")
 	}
 	if m.orgToken.Expires < currentTimestamp {
-		m.orgToken, err = nets.GetToken(management_url, os.Getenv(("ORG_CREDS")))
+		m.orgToken, err = nets.GetToken(management_url, os.Getenv(("ORG_CREDS")), m.Config.Insecure)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 			m.orgToken = m.cloudToken // If org creds are not set use cloud creds
@@ -253,9 +253,9 @@ func (m *Manager) findAPIM() error {
 func (m *Manager) processManagementCluster(apim interface{}) error {
 	// Extract management cluster information
 	clusterInfo := extractManagementClusterInfo(apim)
-	log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s", 
+	log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s",
 		clusterInfo.Name, clusterInfo.Namespace, clusterInfo.Version)
-	
+
 	// Set global version (maintain compatibility with original code)
 	version = clusterInfo.Version
 
@@ -273,12 +273,12 @@ func (m *Manager) processManagementCluster(apim interface{}) error {
 
 	// Publish cloud scoped metrics
 	m.publishTopologyMetrics(topology.Counts, clusterInfo.Name, clusterInfo.Namespace, "cloud", "")
-	
+
 	// Process organizations if enabled
 	if m.Config.ProcessOrgMetrics {
 		m.processOrganizations(topology, clusterInfo)
 	}
-	
+
 	return nil
 }
 
@@ -288,14 +288,14 @@ func (m *Manager) processOrganizations(topology CloudTopology, clusterInfo Manag
 		for _, catalog := range org.Catalogs.Results {
 			// Get webhook stats for this catalog
 			m.getWebhookStats(clusterInfo.URL, org.Name, catalog.Name)
-			
+
 			// Aggregate catalog metrics to org level
 			aggregateCatalogMetricsToOrg(&org.Counts, catalog.Counts)
 		}
-		
+
 		// Set catalog count based on actual number of catalogs
 		org.Counts.Catalogs = float64(len(org.Catalogs.Results))
-		
+
 		// Publish org scoped metrics
 		m.publishTopologyMetrics(org.Counts, clusterInfo.Name, clusterInfo.Namespace, "org", org.Name)
 	}
@@ -314,25 +314,25 @@ func extractManagementClusterInfo(apim interface{}) ManagementClusterInfo {
 	metadata := apim.(map[string]interface{})["metadata"].(map[string]interface{})
 	status := apim.(map[string]interface{})["status"].(map[string]interface{})
 	services := status["services"].(map[string]interface{})
-	
+
 	info := ManagementClusterInfo{
 		Name:      metadata["name"].(string),
 		Namespace: metadata["namespace"].(string),
 		Version:   status["versions"].(map[string]interface{})["reconciled"].(string),
 	}
-	
+
 	// Build the management URL with override handling
 	defaultURL := fmt.Sprintf("https://%s.%s.svc:2000", services["juhu"], info.Namespace)
 	log.Log(alog.INFO, "URL to use is %s", fmt.Sprintf("%s.%s.svc:2000", services["juhu"], info.Namespace))
-	
+
 	hostOverride := os.Getenv("MGMT_HOST")
 	info.URL = defaultURL
-	
+
 	if hostOverride != "" {
 		info.URL = ensureHTTPSPrefix(hostOverride)
 		log.Log(alog.INFO, "Override host set - using %s for manager", hostOverride)
 	}
-	
+
 	return info
 }
 
