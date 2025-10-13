@@ -102,8 +102,6 @@ type ConfiguredGatewayService struct {
 	} `json:"gateway_processing_status"`
 }
 
-var version string
-
 func invokeAPI(url string, certPath string, token string, insecure bool) (*http.Response, error) {
 	return nets.InvokeAPI(url, certPath, token, insecure, false)
 }
@@ -179,10 +177,6 @@ func (m *Manager) getWebhookStats(management_url string, org string, catalog str
 
 }
 
-func (m *Manager) setMetric(gauge_name string, value float64, labels []string) {
-	m.metrics[gauge_name].WithLabelValues(labels...).Set(value)
-}
-
 func (m *Manager) publishTopologyMetrics(topologyCount CountStruct, managementName string, managementNamespace string, scope string, name string) {
 	m.metrics["corgGauge"].WithLabelValues(managementName, managementNamespace, scope, name).Set(topologyCount.ConsumerOrgs)
 	if scope == "cloud" { // Only cloud uses users other levels are members
@@ -255,9 +249,6 @@ func (m *Manager) processManagementCluster(apim interface{}) error {
 	clusterInfo := extractManagementClusterInfo(apim)
 	log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s",
 		clusterInfo.Name, clusterInfo.Namespace, clusterInfo.Version)
-
-	// Set global version (maintain compatibility with original code)
-	version = clusterInfo.Version
 
 	// Get tokens for API calls
 	if err := m.getTokens(clusterInfo.URL); err != nil {

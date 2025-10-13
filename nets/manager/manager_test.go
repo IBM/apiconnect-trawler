@@ -151,9 +151,6 @@ func TestFindAPIM(t *testing.T) {
 		setup()
 	}
 
-	crlList = MockCustomResourceList
-	invokeAPI = MockInvokeAPI
-	getToken = MockGetToken
 	err := m.findAPIM()
 	assert.Empty(err)
 
