@@ -21,7 +21,7 @@ func TestGetToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	token, err := GetToken(server.URL, "")
+	token, err := GetToken(server.URL, "", true)
 
 	testLogger.Log(alog.DEBUG, "fetched token: %s", token)
 	assert.Nil(err)
