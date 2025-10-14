@@ -3,6 +3,7 @@ package consumption
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,6 +50,10 @@ func getIAMToken() (string, error) {
 	form.Set("grant_type", "urn:ibm:params:oauth:grant-type:apikey")
 	apiKeyPath := os.Getenv(("IAM_APIKEY_PATH"))
 	IAM_URL := os.Getenv(("IAM_URL"))
+	// Check if we have a valid IAM URL
+	if IAM_URL != "https://iam.cloud.ibm.com/" && IAM_URL != "https://iam.test.cloud.ibm.com/" {
+		return "", errors.New("invalid IAM URL")
+	}
 	apiKey, _ := os.ReadFile(filepath.Clean(apiKeyPath + "/edbApikey"))
 	form.Set("apikey", string(apiKey))
 	log.Log(alog.INFO, "Received token from IAM")
