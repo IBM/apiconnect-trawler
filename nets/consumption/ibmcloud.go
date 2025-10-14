@@ -53,8 +53,13 @@ func getIAMToken() (string, error) {
 	form.Set("apikey", string(apiKey))
 	log.Log(alog.INFO, "Received token from IAM")
 
+	// Make sure we have a valid IAM URL
+	parsedIamUrl, err := url.Parse(IAM_URL + "/identity/token")
+	if err != nil {
+		return "", err
+	}
 	// Create a request with User-Agent header
-	req, err := http.NewRequest("POST", IAM_URL+"/identity/token", strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", parsedIamUrl.Host, strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
