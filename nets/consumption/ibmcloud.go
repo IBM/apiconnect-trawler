@@ -59,7 +59,7 @@ func getIAMToken() (string, error) {
 		return "", err
 	}
 	// Create a request with User-Agent header
-	req, err := http.NewRequest("POST", parsedIamUrl.Host, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", parsedIamUrl.String(), strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
