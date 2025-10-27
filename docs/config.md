@@ -9,16 +9,21 @@ trawler:
 prometheus:
   port: 63512 
   enabled: true
-logging: 
+logging:
   level: debug
   filters: trawler:trace
   format: pretty
 nets:
+  # Common certificate configuration:
+  # Each net can have an 'insecure' option to control certificate validation
+  # When insecure is false (default), certificates are validated using CA certificates
+  # When insecure is true, certificate validation is skipped
   datapower:
     enabled: true
-    timeout: 5 
+    timeout: 5
     username: trawler-monitor
     namespace: apic-gateway
+    insecure: false
   manager:
     enabled: true
     username: trawler-monitor
@@ -54,9 +59,10 @@ Sample configuration:
 
     datapower:
       enabled: true
-      timeout: 5 
+      timeout: 5
       username: trawler-monitor
       namespace: apic-gateway
+      insecure: false
       api_tests:
           enabled: true
           apis:
@@ -67,16 +73,19 @@ Sample configuration:
 
  - timeout: max seconds to wait for responses to DataPower REST calls
  - username: user to authenticate to datapower with - needs read privileges
- - namespace: (optional) namespace in which datapower is deployed - if not specified trawler will discover datapower pods across all namespaces it has permissions to. 
+ - namespace: (optional) namespace in which datapower is deployed - if not specified trawler will discover datapower pods across all namespaces it has permissions to.
+ - insecure: (default false) when set to true, certificate validation will be skipped when making API calls to DataPower REST management interface
  - api_tests: Enable a set of APIs to test invokes against directly on the datapower pods:
    - enabled: true / false (default false)
+   - insecure: (default false) when set to true, certificate validation will be skipped when making API calls to DataPower
    - apis: list of APIs to test
      - name: used for the prometheus metric naming (datapower_invoke_api_{name}...)
-     - path: full path for the API 
+     - path: full path for the API
      - method: HTTP Method to use
      - headers: map of key/value pairs for any headers required
 
-
+To provide CA certificates to validate the calls against, set the environment variable DP_CERTS to a path containing a `ca.crt` file containing 
+a bundle of CA certificates covering for both REST Management and the API invocation.  By default datapower will generate a self-signed certificate within the system for the rest-management interface so configuring this to be a ca signed certificate will require additional configuration. 
 
 ### Management net
 
@@ -104,12 +113,50 @@ Sample config:
       analytics:
         enabled: true
         namespace: apic
+        insecure: false
 
  - namespace: namespace the analytics subsystem is deployed in
+ - insecure: (default false) when set to true, certificate validation will be skipped when making API calls to the analytics subsystem
 
-### Certs net
+### Manager net certificate configuration
+
+The manager net uses the `MGMT_CERTS` environment variable to locate certificates for secure communication. This should point to a directory containing the ca certificate for the management subsystem in ca.crt (typically by mounting the management-server secret)
+Sample config:
+
+      manager:
+        enabled: true
+        insecure: false
+        # other manager options...
+
+ - insecure: (default false) when set to true, certificate validation will be skipped when making API calls to the management subsystem
+
+### Analytics net certificate configuration
+
+The analytics net uses the `ANALYTICS_CERTS` environment variable to locate certificates for secure communication. This should point to a directory containing the certificates to communicate with analytics (typically by mounting the analytics-client secret):
+ 
+### Certs net
 
 Sample config:
 
       certs:
         enabled: true
+
+## Certificate Validation
+
+Trawler uses TLS certificates for secure communication with API Connect components. Each net can be configured with an `insecure` option that controls certificate validation:
+
+```yaml
+nets:
+  manager:
+    insecure: false  # Certificate validation enabled (default)
+  analytics:
+    insecure: true   # Certificate validation disabled
+```
+
+When `insecure` is set to `false` (default), Trawler validates server certificates using CA certificates from the following environment variables:
+
+- `MGMT_CERTS`: Directory containing certificates for the management subsystem
+- `ANALYTICS_CERTS`: Directory containing certificates for the analytics subsystem
+- `DP_CERTS`: Directory containing ca.crt with CA certificates for the datapower rest management interface and for API invoke tests
+
+These environment variables should point to directories containing the certificates required - for certificate validation they require a `ca.crt` file, for analytics the communication uses mTLS so will require the tls.crt and tls.key to use as the client certificate - these typically point to mounted secrets containing the necessary certificate files.

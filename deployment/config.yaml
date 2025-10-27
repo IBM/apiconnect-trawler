@@ -18,8 +18,10 @@ nets:
     enabled: true
     username: admin
     namespace: gateway-namespace
+    insecure: true
     api_tests:
       enabled: false
+      insecure: true
       apis:
         - name: testapi
           path: /porg/catalog/test
