@@ -138,7 +138,7 @@ func InvokeAPI(url string, certPath string, token string, insecure, mtls bool) (
 		TLSClientConfig: &tls.Config{
 			RootCAs:            caCertPool,
 			Certificates:       certificates,
-			InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user
+			InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user and false by default
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
@@ -249,7 +249,7 @@ func GetToken(management_url string, secretPath string, insecure bool) (Token, e
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user
+				InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user and false by default
 				MinVersion:         tls.VersionTLS12,
 				CipherSuites: []uint16{
 					tls.TLS_AES_256_GCM_SHA384,

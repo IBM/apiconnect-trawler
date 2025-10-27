@@ -331,7 +331,7 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: d.Config.APITests.Insecure, // #nosec G402 -- Configurable by user
+			InsecureSkipVerify: d.Config.APITests.Insecure, // #nosec G402 -- Configurable by user and false by default
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
@@ -769,7 +769,7 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs:            caCertPool,
-			InsecureSkipVerify: d.Config.Insecure, // #nosec G402 -- Configurable by user
+			InsecureSkipVerify: d.Config.Insecure, // #nosec G402 -- Configurable by user and false by default
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
 				tls.TLS_AES_256_GCM_SHA384,
