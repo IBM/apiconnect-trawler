@@ -20,6 +20,8 @@ spec:
     spec:
       containers:
         - env:
+          - name: MGMT_CERTS
+            value: /app/mgmt-certs
           - name: MGMT_CREDS
             value: /app/mgmt-cloud
           - name: ORG_CREDS
@@ -53,6 +55,9 @@ spec:
           volumeMounts:
             - mountPath: /app/config
               name: trawler-config
+            - mountPath: /app/mgmt-certs
+              name: management-server
+              readOnly: true
             - mountPath: /app/mgmt-cloud
               name: mgmt-cloud-creds
             - mountPath: /app/mgmt-org

@@ -3,6 +3,7 @@ package datapower
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -757,9 +758,17 @@ func (d *DataPower) invokeRestMgmt(ip string, path string) (*http.Response, erro
 	client := &http.Client{
 		Timeout: time.Second * time.Duration(d.Config.TimeOut),
 	}
+	// Set up the trust for the CA Certificate
+	certPath := os.Getenv("DP_CERTS")
+	caCertPool := x509.NewCertPool()
+	if certPath != "" {
+		caCert, _ := os.ReadFile(filepath.Clean(certPath + "/ca.crt"))
+		caCertPool.AppendCertsFromPEM(caCert)
+	}
 
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
+			RootCAs:            caCertPool,
 			InsecureSkipVerify: d.Config.Insecure, // #nosec G402 -- Configurable by user
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
