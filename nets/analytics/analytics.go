@@ -83,9 +83,10 @@ type IngestionPipelineStats struct {
 		Version   string `json:"version"`
 		Status    string `json:"status"`
 		Pipelines struct {
-			Offload PipelineStats `json:"offload"`
-			Storage PipelineStats `json:"storage"`
-			Intake  PipelineStats `json:"intake"`
+			Offload    PipelineStats `json:"offload"`
+			Storage    PipelineStats `json:"storage"`
+			Intake     PipelineStats `json:"intake"`
+			DataIntake PipelineStats `json:"data-intake"`
 		} `json:"pipelines"`
 	} `json:"data"`
 }
@@ -199,6 +200,8 @@ func (a *Analytics) ingestionStats(analytics_url string, analyticsName string, a
 		eventsOut.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "storage").Set(float64(ingestion.Data.Pipelines.Storage.Events.Out))
 		eventsIn.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "intake").Set(float64(ingestion.Data.Pipelines.Intake.Events.In))
 		eventsOut.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "intake").Set(float64(ingestion.Data.Pipelines.Intake.Events.Out))
+		eventsIn.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "data-intake").Set(float64(ingestion.Data.Pipelines.DataIntake.Events.In))
+		eventsOut.WithLabelValues(ingestion.Data.Host, analyticsName, analyticsNamespace, "data-intake").Set(float64(ingestion.Data.Pipelines.DataIntake.Events.Out))
 	}
 }
 
