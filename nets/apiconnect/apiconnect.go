@@ -104,7 +104,7 @@ func (a *APIConnect) BackgroundFishing() {
 	// Start the main loop
 	for range ticker.C {
 		log.Log(alog.DEBUG, "Fishing for API Connect subsystem CRs")
-		// Reset health status metrics before collecting new values
+		// Reset health status metrics before collecting new values to avoid duplication
 		a.healthStatus.Reset()
 		a.Fish()
 	}
