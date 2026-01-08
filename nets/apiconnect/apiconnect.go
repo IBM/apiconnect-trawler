@@ -36,7 +36,7 @@ var log = alog.UseChannel("apic")
 func (a *APIConnect) crdStatusMetrics(group, version, resource string, crdStatus prometheus.GaugeVec) {
 	log.Log(alog.DEBUG, "Getting status for %s/%s", group, version, resource)
 	subsystems := nets.GetCustomResourceList(group, version, resource, a.Config.Namespace)
-	
+
 	// Check if subsystems is nil to prevent segmentation fault
 	if subsystems == nil {
 		log.Log(alog.DEBUG, "No %s resources found in namespace %s", resource, a.Config.Namespace)
@@ -104,6 +104,8 @@ func (a *APIConnect) BackgroundFishing() {
 	// Start the main loop
 	for range ticker.C {
 		log.Log(alog.DEBUG, "Fishing for API Connect subsystem CRs")
+		// Reset health status metrics before collecting new values
+		a.healthStatus.Reset()
 		a.Fish()
 	}
 }
