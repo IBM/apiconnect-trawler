@@ -203,7 +203,7 @@ func (d *DataPower) registerMetrics() {
 	// Version
 	d.metrics["version"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_version_info"}, []string{"pod", "namespace", "version", "build"})
 	// Error tracking
-	d.metrics["error_count"] = (*prometheus.GaugeVec)(promauto.NewCounterVec(prometheus.CounterOpts{Name: "trawler_errors_total"}, []string{"net"}))
+	d.metrics["error_count"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "trawler_errors_total"}, []string{"net"})
 
 	// TCP Summary
 	d.metrics["tcp_established_total"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_tcp_established_total"}, []string{"pod", "namespace"})
