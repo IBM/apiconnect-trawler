@@ -22,6 +22,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	// Import OIDC auth provider plugin to enable OIDC authentication
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 type TokenResponse struct {
@@ -89,7 +92,13 @@ func GetKubeConfig() (*rest.Config, error) {
 		kubeConfigPath := filepath.Join(userHomeDir, ".kube", "config")
 		log.Log(alog.DEBUG, "Using kubeconfig: %s", kubeConfigPath)
 
-		config, err = clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+		// Use NewNonInteractiveDeferredLoadingClientConfig to properly handle
+		// all authentication methods including OIDC (exec-based auth)
+		loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeConfigPath}
+		configOverrides := &clientcmd.ConfigOverrides{}
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+
+		config, err = kubeConfig.ClientConfig()
 		if err != nil {
 			log.Log(alog.FATAL, "error getting Kubernetes config: %v", err)
 			os.Exit(1)
