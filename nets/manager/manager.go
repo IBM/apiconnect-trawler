@@ -12,6 +12,7 @@ import (
 	"github.com/IBM/alchemy-logging/src/go/alog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type Manager struct {
@@ -201,7 +202,7 @@ func (m *Manager) getTokens(management_url string) error {
 	currentTimestamp := int(time.Now().Unix())
 
 	if m.cloudToken.Expires < currentTimestamp {
-		m.cloudToken, err = nets.GetToken(management_url, os.Getenv(("MGMT_CREDS")), m.Config.Insecure)
+		m.cloudToken, err = nets.GetToken(management_url, os.Getenv(("MGMT_CREDS")), m.Config.CertPath, m.Config.Insecure)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 			return err
@@ -210,7 +211,7 @@ func (m *Manager) getTokens(management_url string) error {
 		log.Log(alog.DEBUG, "Using cached cloud token")
 	}
 	if m.orgToken.Expires < currentTimestamp {
-		m.orgToken, err = nets.GetToken(management_url, os.Getenv(("ORG_CREDS")), m.Config.Insecure)
+		m.orgToken, err = nets.GetToken(management_url, os.Getenv(("ORG_CREDS")), m.Config.CertPath, m.Config.Insecure)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
 			m.orgToken = m.cloudToken // If org creds are not set use cloud creds
@@ -232,6 +233,7 @@ type ManagementClusterInfo struct {
 func (m *Manager) findAPIM() error {
 	m.Config.CertPath = os.Getenv("MGMT_CERTS")
 	apims := nets.GetCustomResourceList("management.apiconnect.ibm.com", "v1beta1", "managementclusters", m.Config.Namespace)
+
 	if apims == nil {
 		return nil
 	}
@@ -244,9 +246,9 @@ func (m *Manager) findAPIM() error {
 	return nil
 }
 
-func (m *Manager) processManagementCluster(apim interface{}) error {
+func (m *Manager) processManagementCluster(apim unstructured.Unstructured) error {
 	// Extract management cluster information
-	clusterInfo := extractManagementClusterInfo(apim)
+	clusterInfo := extractManagementClusterInfo(apim.Object)
 	log.Log(alog.INFO, "Found managementcluster: name %s, namespace %s, version: %s",
 		clusterInfo.Name, clusterInfo.Namespace, clusterInfo.Version)
 
@@ -301,9 +303,11 @@ func aggregateCatalogMetricsToOrg(orgCounts *CountStruct, catalogCounts CountStr
 	orgCounts.Subscriptions += catalogCounts.Subscriptions
 }
 
-func extractManagementClusterInfo(apim interface{}) ManagementClusterInfo {
-	metadata := apim.(map[string]interface{})["metadata"].(map[string]interface{})
-	status := apim.(map[string]interface{})["status"].(map[string]interface{})
+func extractManagementClusterInfo(apimObject map[string]interface{}) ManagementClusterInfo {
+	// Extract management cluster information from the given APIManager object
+	// and return a ManagementClusterInfo struct.
+	metadata := apimObject["metadata"].(map[string]interface{})
+	status := apimObject["status"].(map[string]interface{})
 	services := status["services"].(map[string]interface{})
 
 	info := ManagementClusterInfo{

@@ -217,7 +217,7 @@ func GetCustomResourceList(group, version, resource, namespace string) *unstruct
 	return items
 }
 
-func GetToken(management_url string, secretPath string, insecure bool) (Token, error) {
+func GetToken(management_url string, secretPath string, certPath string, insecure bool) (Token, error) {
 	log.Log(alog.DEBUG, "Getting token using %s", secretPath)
 	clientId, _ := os.ReadFile(filepath.Clean(secretPath + "/client_id"))
 	clientSecret, _ := os.ReadFile(filepath.Clean(secretPath + "/client_secret"))
@@ -255,9 +255,28 @@ func GetToken(management_url string, secretPath string, insecure bool) (Token, e
 	log.Log(alog.DEBUG, string(postBody))
 
 	tokenRequest := bytes.NewBuffer(postBody)
+
+	// Set up the trust for the CA Certificate
+	caCertPool := x509.NewCertPool()
+	if certPath != "" {
+		caCert, err := os.ReadFile(filepath.Clean(certPath + "/ca.crt"))
+		if err != nil {
+			log.Log(alog.DEBUG, "Failed to read CA certificate from %s/ca.crt: %v", certPath, err)
+		} else {
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				log.Log(alog.DEBUG, "Failed to append CA certificate from %s/ca.crt", certPath)
+			} else {
+				log.Log(alog.DEBUG, "Successfully loaded CA certificate from %s/ca.crt", certPath)
+			}
+		}
+	} else {
+		log.Log(alog.INFO, "No certPath provided, using system CA certificates")
+	}
+
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
+				RootCAs:            caCertPool,
 				InsecureSkipVerify: insecure, // #nosec G402 -- Configurable by user and false by default
 				MinVersion:         tls.VersionTLS12,
 				CipherSuites: []uint16{
