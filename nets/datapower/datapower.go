@@ -329,8 +329,17 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 		Timeout: time.Second * time.Duration(d.Config.APITests.TimeOut),
 	}
 
+	// Set up the trust for the CA Certificate
+	certPath := os.Getenv("DP_CERTS")
+	caCertPool := x509.NewCertPool()
+	if certPath != "" {
+		caCert, _ := os.ReadFile(filepath.Clean(certPath + "/ca.crt"))
+		caCertPool.AppendCertsFromPEM(caCert)
+	}
+
 	client.Transport = &http.Transport{
 		TLSClientConfig: &tls.Config{
+			RootCAs:            caCertPool,
 			InsecureSkipVerify: d.Config.APITests.Insecure, // #nosec G402 -- Configurable by user and false by default
 			MinVersion:         tls.VersionTLS12,
 			CipherSuites: []uint16{
@@ -353,7 +362,9 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 		req, err := http.NewRequest(apitest.Method, url, nil)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
-			return
+			// Track request creation errors with code 0
+			d.invokeCounter.WithLabelValues(pod, namespace, apitest.Name, "0").Inc()
+			continue
 		}
 		req.Header.Set("User-Agent", "trawler/"+nets.Version)
 
@@ -363,7 +374,9 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 		duration := time.Since(startTime)
 		if err != nil {
 			log.Log(alog.ERROR, err.Error())
-			return
+			// Track client errors (TLS, connection, timeout, etc.) with code 526
+			d.invokeCounter.WithLabelValues(pod, namespace, apitest.Name, "526").Inc()
+			continue
 		}
 
 		d.metrics["invoke_api_time"].WithLabelValues(pod, namespace, apitest.Name).Set(float64(duration.Milliseconds()))
