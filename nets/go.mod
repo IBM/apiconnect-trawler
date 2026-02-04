@@ -2,7 +2,7 @@ module nets
 
 go 1.24.0
 
-toolchain go1.24.6
+toolchain go1.25.7
 
 require (
 	github.com/IBM/alchemy-logging/src/go v1.0.3
