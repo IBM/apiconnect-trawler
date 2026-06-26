@@ -256,6 +256,7 @@ func (d *DataPower) registerMetrics() {
 	// Invoke API Tests
 	d.metrics["invoke_api_size"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_invoke_api_size", Help: "invoke response content length"}, []string{"pod", "namespace", "name"})
 	d.metrics["invoke_api_time"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_invoke_api_time", Help: "invoke time taken in ms"}, []string{"pod", "namespace", "name"})
+	d.metrics["invoke_api_cert_expiry"] = promauto.NewGaugeVec(prometheus.GaugeOpts{Name: "datapower_api_cert_remaining_seconds", Help: "seconds until the presented TLS certificate expires"}, []string{"pod", "namespace", "name"})
 
 	d.invokeCounter = promauto.NewCounterVec(prometheus.CounterOpts{Name: "datapower_invoke_api_status_total"}, []string{"pod", "namespace", "name", "code"})
 }
@@ -381,6 +382,11 @@ func (d *DataPower) doAPITests(ip string, pod string, namespace string) {
 
 		d.metrics["invoke_api_time"].WithLabelValues(pod, namespace, apitest.Name).Set(float64(duration.Milliseconds()))
 		d.metrics["invoke_api_size"].WithLabelValues(pod, namespace, apitest.Name).Set(float64(response.ContentLength))
+
+		if response.TLS != nil && len(response.TLS.PeerCertificates) > 0 {
+			expiry := time.Until(response.TLS.PeerCertificates[0].NotAfter).Seconds()
+			d.metrics["invoke_api_cert_expiry"].WithLabelValues(pod, namespace, apitest.Name).Set(expiry)
+		}
 
 		d.invokeCounter.WithLabelValues(pod, namespace, apitest.Name, fmt.Sprint(response.StatusCode)).Inc()
 
