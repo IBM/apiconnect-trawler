@@ -16,7 +16,7 @@ on:
     branches: [ main ]
 
 env:
-  IMAGE_NAME: ghcr.io/ibm/apiconnect-trawler/trawler
+  IMAGE_NAME: ibm/apiconnect-trawler/trawler
 
 jobs:
 
