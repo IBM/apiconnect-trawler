@@ -5,7 +5,7 @@ go 1.26.0
 toolchain go1.26.5
 
 require (
-	github.com/IBM/alchemy-logging/src/go v1.0.3
+	github.com/IBM/alchemy-logging/src/go v1.1.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
 	gopkg.in/yaml.v3 v3.0.1
