@@ -2,10 +2,10 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 - repo: https://github.com/ibm/detect-secrets
-  rev: 0.13.1+ibm.61.dss
-    hooks:
-      - id: detect-secrets
-        args: [--baseline, .secrets.baseline, --use-all-plugins]
+  rev: 0.13.1+ibm.64.dss
+  hooks:
+    - id: detect-secrets
+      args: [--baseline, .secrets.baseline, --use-all-plugins]
 - repo: https://github.com/dnephin/pre-commit-golang
   rev: v0.5.1
   hooks:
